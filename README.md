@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-15%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-16%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -136,6 +136,18 @@ subgraph labels). Click any title below to open the SVG.
     `finish_reason='length'` truncation bug), KV-cache quantization, and GPU passthrough — tying
     the other 14 diagrams together into one narrative arc.
 
+### Sandbox boundary
+
+16. **[Sandbox docker-in-docker gap](diagrams/16_sandbox_docker_in_docker_gap.svg)** — why Hermes's
+    own shell tool can't see or manage Docker containers: `terminal.backend: docker` runs every
+    tool call *inside* the sandbox container, which has neither a `docker` client binary nor
+    `/var/run/docker.sock` mounted in — confirmed live (`docker exec <sandbox> which docker` →
+    "executable file not found"). Host Docker itself is healthy and unaffected
+    (`docker --version` → 29.1.3, daemon active). Unlike the GPU-passthrough precedent, this gap is
+    deliberately **not** closed: mounting the Docker socket into the sandbox is a well-known
+    root-equivalent privilege-escalation pattern, not a scoped capability grant. Full writeup in
+    [`system_architecture.md`](system_architecture.md).
+
 ## Key takeaways for anyone running a similar local-Ollama agent stack
 
 - **KV-cache quantization is not automatic and not universal.** Setting
@@ -156,6 +168,11 @@ subgraph labels). Click any title below to open the SVG.
   completely separate concerns.** Hardening one (the Docker sandbox) doesn't require touching the
   other (the Ollama API connection), and loosening one (adding GPU passthrough to the sandbox) is
   an isolated, deliberate decision, not an automatic side effect of anything else in this stack.
+- **A Docker-backed sandbox being "docker-blind" from the inside is a feature, not a bug worth
+  reflexively fixing.** Mounting `/var/run/docker.sock` into a sandbox to give it Docker-management
+  powers is a well-known root-equivalent privilege escalation, unlike narrower device-passthrough
+  grants (e.g. GPU access) — see [`system_architecture.md`](system_architecture.md) for the full
+  reasoning.
 
 ## License
 
