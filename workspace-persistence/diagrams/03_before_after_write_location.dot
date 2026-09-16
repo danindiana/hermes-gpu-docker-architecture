@@ -1,0 +1,35 @@
+digraph BeforeAfterWriteLocation {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Where a write actually lands: before vs. after the terminal.cwd fix";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_before {
+    label="BEFORE"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    agent1 [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", label="Hermes write_file /\nterminal tool call\n(cwd resolved to /root)"];
+    ephemeral [shape=folder, fillcolor="#3a0d0d", color="#ff4d4d",
+               label="container /root\n(bind-mounted from host\n~/.hermes/sandboxes/docker/default/home)"];
+    wiped [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada", penwidth=2.5,
+           label="lost on next container\nrecreation (persistent\ncontainer, but home is\nephemeral scratch space)"];
+    agent1 -> ephemeral -> wiped;
+  }
+
+  subgraph cluster_after {
+    label="AFTER"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    agent2 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Hermes write_file /\nterminal tool call\n(cwd pinned to /workspace)"];
+    ws [shape=folder, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="container /workspace\n(bind-mounted from host\n~/Documents/hermes-sessions)"];
+    persisted [shape=box3d, fillcolor="#0f2a20", color="#39ffb0", fontcolor="#dfe6ee", penwidth=2.5,
+               label="survives container recreation --\nreal host-persistent storage"];
+    agent2 -> ws -> persisted;
+  }
+
+  recovered [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+             label="A real stray session found this way\n(session_1789580030) was manually\ncopied from the ephemeral container home\nto the persistent /workspace-backed dir\nbefore any container recreation could wipe it."];
+  wiped -> recovered [style=dotted, color="#39d0ff"];
+}

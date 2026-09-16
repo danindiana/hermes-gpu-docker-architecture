@@ -1,0 +1,39 @@
+digraph CwdResolutionPath {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="terminal.cwd resolution: the '.' placeholder bug vs. the '/workspace' pin";
+  labelloc="t";
+  fontsize=20;
+  node [shape=box, style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#556070", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_bug {
+    label="BEFORE — terminal.cwd: . (placeholder)"; fontcolor="#ff4d4d"; color="#ff4d4d";
+    style=dashed; bgcolor="#2a0d0d";
+    b1 [fillcolor="#3a0d0d", color="#ff4d4d", label="terminal.cwd: \".\"\n(gateway/cwd_placeholder.py:12\nCWD_PLACEHOLDERS = {\".\",\"auto\",\"cwd\"})"];
+    b2 [fillcolor="#3a0d0d", color="#ff4d4d", label="resolve_placeholder_terminal_cwd()"];
+    b3 [fillcolor="#3a0d0d", color="#ff4d4d", label="backend == docker AND\ndocker_mount_cwd_to_workspace == false\n(this machine's config)"];
+    b4 [fillcolor="#3a0d0d", color="#ff4d4d", label="returns None"];
+    b5 [fillcolor="#3a0d0d", color="#ff4d4d", label="terminal_tool.py:_resolve_config_cwd()\nfalls back to\n_DEFAULT_CWD_BY_BACKEND.get(\"docker\", \"/root\")"];
+    b6 [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada", penwidth=2.5,
+        label="cwd = /root\n(ephemeral container home —\nwiped on container recreation)"];
+    b1 -> b2 -> b3 -> b4 -> b5 -> b6;
+  }
+
+  subgraph cluster_fix {
+    label="AFTER — terminal.cwd: /workspace (literal path)"; fontcolor="#39ffb0"; color="#39ffb0";
+    style=dashed; bgcolor="#0d2a1a";
+    f1 [fillcolor="#0f2a20", color="#39ffb0", label="terminal.cwd: \"/workspace\"\n(not in CWD_PLACEHOLDERS)"];
+    f2 [fillcolor="#0f2a20", color="#39ffb0", label="cwd_placeholder.py:33\n\"if configured_cwd not in\nCWD_PLACEHOLDERS: return configured_cwd\""];
+    f3 [fillcolor="#0f2a20", color="#39ffb0", label="terminal_tool_config.py:98\n_is_unusable_container_cwd()\nonly rejects host-style paths\n(/home/, /Users/, Windows drives,\nrelative) -- /workspace passes"];
+    f4 [shape=octagon, fillcolor="#0f2a20", color="#39ffb0", fontcolor="#dfe6ee", penwidth=2.5,
+        label="cwd = /workspace\n(persistent host-mounted dir --\nunconditional, independent of\ndocker_mount_cwd_to_workspace,\nhome_mode, AGENTS.md compliance)"];
+    f1 -> f2 -> f3 -> f4;
+  }
+
+  note [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+        label="Verified live: one-shot 'hermes -z' run after the fix\nshowed pwd == /workspace and real persisted\ndirectory contents, not an empty fresh container."];
+  f4 -> note [style=dotted, color="#39d0ff"];
+}

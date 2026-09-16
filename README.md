@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-15%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-18%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -156,6 +156,30 @@ subgraph labels). Click any title below to open the SVG.
   completely separate concerns.** Hardening one (the Docker sandbox) doesn't require touching the
   other (the Ollama API connection), and loosening one (adding GPU passthrough to the sandbox) is
   an isolated, deliberate decision, not an automatic side effect of anything else in this stack.
+
+## Workspace persistence: a real bug, root-caused and fixed
+
+A separate, self-contained deep-dive lives in
+[`workspace-persistence/`](workspace-persistence/): a real Hermes session
+wrote files inside its Docker sandbox's ephemeral container home instead
+of the persistent `/workspace` mount — real files, not a hallucination,
+but silently lost on the next container recreation. The prior mitigation
+in [`hermes-agent-blast-radius`](https://github.com/danindiana/hermes-agent-blast-radius)
+(an `AGENTS.md` placement) was a real improvement but left a gap, because
+it depends on the model's working directory already being somewhere that
+instruction file can be discovered from.
+
+This subfolder documents the actual root cause, traced directly in the
+upstream `hermes-agent` source (`terminal.cwd: .` resolving through a
+placeholder system down to a hardcoded `/root` fallback for the `docker`
+backend, entirely before AGENTS.md discovery ever runs), the deterministic
+config-level fix (`terminal.cwd: /workspace`), and real verification that
+it works — plus proposed-but-not-yet-built follow-on work (a
+write-location safety net) for anyone who wants to take it further.
+
+- [`workspace-persistence/RESEARCH_PROPOSAL.md`](workspace-persistence/RESEARCH_PROPOSAL.md) — problem statement, root cause, fix, evaluation plan
+- [`workspace-persistence/SOURCE_TRACE.md`](workspace-persistence/SOURCE_TRACE.md) — the file:line source trace and real verification output
+- [`workspace-persistence/diagrams/`](workspace-persistence/diagrams/) — 3 more diagrams: the cwd resolution decision path, the AGENTS.md discovery chain, and before/after write location
 
 ## License
 

@@ -1,0 +1,33 @@
+digraph AgentsMdDiscoveryChain {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="AGENTS.md discovery chain (agent/prompt_builder.py:1526) -- why it can't reach $HOME";
+  labelloc="t";
+  fontsize=20;
+  node [shape=box, style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39d0ff", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  root [fillcolor="#152a3a", color="#39d0ff", label="git root\n(_find_git_root)"];
+  mid [fillcolor="#152a3a", color="#39d0ff", label="intermediate directories\n(deepest-wins chain)"];
+  cwd [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+       label="resolved cwd\n(agent.runtime_cwd.resolve_context_cwd() --\nhost TERMINAL_CWD or os.getcwd() at launch)"];
+  check [shape=note, fillcolor="#1a1f26", color="#556070",
+         label="per directory, checks in order:\nAGENTS.override.md -> AGENTS.md -> agents.md\nfirst non-empty wins"];
+
+  root -> mid -> cwd;
+  cwd -> check [style=dotted];
+
+  subgraph cluster_unreachable {
+    label="NEVER checked by this chain"; fontcolor="#ff4d4d"; color="#ff4d4d";
+    style=dashed; bgcolor="#2a0d0d";
+    home [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="$HOME / /root\n(container's ephemeral home)"];
+  }
+
+  cwd -> home [style=dashed, color="#ff4d4d", label="if cwd resolved to /root\n(the bug), AGENTS.md placed\nanywhere under the real\nworkspace tree is simply\nnever walked to"];
+
+  legend [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+          label="This is why the prior mitigation (placing\nAGENTS.md at the real hermes-sessions/ root,\nsee hermes-agent-blast-radius addendum 5)\nonly partially worked: correct placement\nstill depends on cwd already being correct.\nPinning terminal.cwd removes that dependency."];
+}
