@@ -1,0 +1,56 @@
+digraph DockerInDockerGap {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Why Hermes can't manage Docker containers from inside its own sandbox";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_host {
+    label="the-box (real host)";
+    fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    dockerd [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+             label="dockerd\n(systemd, active)\nv29.1.3"];
+    sock [shape=cylinder, fillcolor="#152a3a", color="#39d0ff",
+          label="/var/run/docker.sock"];
+    sibling [shape=box, fillcolor="#152a3a", color="#39d0ff",
+             label="sibling containers\n(e.g. open-webui, agent-zero,\nHermes's own sandbox)"];
+    dockerd -> sock [dir=none];
+    dockerd -> sibling [label="creates / manages"];
+  }
+
+  hermes [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+          label="Hermes Agent process\n(runs as host OS user,\nnot containerized itself)"];
+
+  subgraph cluster_container {
+    label="hermes-sandbox:graphviz\n--cap-drop ALL  --user (host uid:gid)\n--security-opt no-new-privileges";
+    fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    tool [shape=box, fillcolor="#2a1a0d", color="#ff9f4d",
+          label="shell tool call\n(e.g. \"docker ps\")"];
+    nobin [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="exec: \"docker\": executable\nfile not found in $PATH"];
+    nosock [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+            label="/var/run/docker.sock:\nNo such file or directory\n(not mounted)"];
+    tool -> nobin;
+    tool -> nosock;
+  }
+
+  hermes -> tool [label="terminal.backend: docker"];
+
+  verify [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+          label="Verified live:\ndocker exec <sandbox> which docker -> exit 2\ndocker exec <sandbox> ls /var/run/docker.sock -> ENOENT\nmeanwhile `docker --version` on the-box itself: 29.1.3, daemon active"];
+  tool -> verify [style=invis];
+
+  option [shape=box3d, fillcolor="#241a0d", color="#ff9f4d", fontcolor="#ffe0c0",
+          label="Option: mount docker.sock + install\ndocker CLI into the sandbox image"];
+  escalation [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+              label="= host-root-equivalent access\n(classic docker.sock privilege escalation:\ncan create a --privileged container\nand mount the host filesystem into it)"];
+  option -> escalation [label="not done\n(rejected by default)", style=dashed, color="#ff4d4d"];
+
+  recommend [shape=plaintext, fontcolor="#8b5cf6",
+             label="Default posture: leave the sandbox docker-blind.\nContainer management on the-box stays an operator\n(human) or Claude Code task, run from the real host shell,\nnot delegated to Hermes's own sandboxed tool calls."];
+  escalation -> recommend [style=invis];
+}
