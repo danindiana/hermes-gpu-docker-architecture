@@ -1,0 +1,44 @@
+digraph ModelLoadingLifecycle {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Model-loading lifecycle: thrashing root cause -> fix -> steady state";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_bad {
+    label="BEFORE: thrashing (MAX_LOADED_MODELS=2)";
+    fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    turn [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", label="Every turn needs 3 models:\nchat model + mem0 extractor + embedder"];
+    slot [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", label="Only 2 slots available"];
+    evict [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="Active eviction thrashing:\nnemotron loaded/evicted\n313 times in 3 hours"];
+    turn -> slot -> evict;
+  }
+
+  subgraph cluster_fix {
+    label="FIX";
+    fontcolor="#ffa93a"; color="#ffa93a"; style=dashed; bgcolor="#241a0d";
+    f1 [shape=box, fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_MAX_LOADED_MODELS: 2 -> 3"];
+    f2 [shape=box, fillcolor="#2a1f0f", color="#ffa93a", label="mem0 extractor moved to a\ndedicated CPU-pinned tag\n(mem0-extractor-cpu,\nqwen3:4b-instruct base, num_gpu=0)"];
+    f3 [shape=box, fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_NUM_PARALLEL: 2 -> 1\n(halves reserved KV-cache slots)"];
+    f1 -> f2 -> f3;
+  }
+
+  subgraph cluster_good {
+    label="AFTER: steady state (verified via journalctl)";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    s1 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Chat model (GPU)"];
+    s2 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="nomic-embed-text (GPU, ~397MB)"];
+    s3 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="mem0-extractor-cpu (CPU, 0 VRAM)"];
+    s4 [shape=box, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="All 3 resident simultaneously,\nZERO eviction\n(clean count=1, no \"make room\" spam)"];
+    s1 -> s4; s2 -> s4; s3 -> s4;
+  }
+
+  evict -> f1 [color="#ffa93a", label="root-caused and fixed"];
+  f3 -> s1 [color="#39ffb0"];
+}

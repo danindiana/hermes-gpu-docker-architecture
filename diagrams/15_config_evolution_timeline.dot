@@ -1,0 +1,30 @@
+digraph ConfigEvolution {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Config evolution timeline — how this system reached its current state";
+  labelloc="t";
+  fontsize=20;
+  node [shape=box, style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  t1 [fillcolor="#152a3a", color="#39d0ff", label="OLLAMA_CONTEXT_LENGTH\n65536 -> 131072\n(OpenClaw)"];
+  t2 [fillcolor="#241a0d", color="#ffa93a", label="MAX_LOADED_MODELS=2\nthrashing discovered\n(313 evictions/3hr)"];
+  t3 [fillcolor="#0f2a20", color="#39ffb0", label="Thrashing fixed:\nMAX_LOADED_MODELS=3,\nmem0-extractor-cpu,\nNUM_PARALLEL 2->1"];
+  t4 [fillcolor="#152a3a", color="#39d0ff", label="nemotron-3.5-lightning:1m\nderived tag created\n(1M native ctx)"];
+  t5 [fillcolor="#241a3a", color="#8b5cf6", label="rm -rf incident ->\nterminal.backend: docker\n(sandboxed, CapDrop=ALL)"];
+  t6 [fillcolor="#152a3a", color="#39d0ff", label="OLLAMA_CONTEXT_LENGTH\n131072 -> 262144\n(ornith truncation fix +\n3-layer footgun found)"];
+  t7 [fillcolor="#152a3a", color="#39d0ff", label="devstral-small-2:24b-196k\nderived tag created\n(half native 393216 ctx)"];
+  t8 [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5, label="devstral-small-2:24b-196k\nset as Hermes's\nactive model.default"];
+  t9 [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+      label="OLLAMA_KV_CACHE_TYPE=q8_0\nenabled (halves KV VRAM on\nallowlisted architectures)"];
+  t10 [fillcolor="#2a1a0d", color="#ff9f4d", penwidth=2.5,
+       label="Docker sandbox gets\n--gpus=all passthrough\n(nvidia-smi now usable\ninside Hermes tool calls)"];
+
+  t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10;
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="Every step here is a real, applied, verified change on\nthe-box across multiple real working sessions — not a\nplanned roadmap. Diagrams 01-14 document the resulting\nstate; this one documents how it got there."];
+  t10 -> note [style=invis];
+}

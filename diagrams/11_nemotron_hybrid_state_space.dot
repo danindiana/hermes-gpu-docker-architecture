@@ -1,0 +1,47 @@
+digraph NemotronHybrid {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="nemotron-3.5-lightning:1m — hybrid Mamba2/attention, measured @ 1,048,576 ctx";
+  labelloc="t";
+  fontsize=18;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  model [shape=box, fillcolor="#152a3a", color="#39d0ff",
+         label="nemotron_h_moe architecture\n32.9B params, ~59 total layers"];
+
+  subgraph cluster_attn {
+    label="Full-attention layers (minority)";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    attn_q8 [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+             label="6 layers: q8_0 KV cache\n3,264 MiB measured"];
+    attn_f16 [shape=box, fillcolor="#241a0d", color="#ffa93a",
+              label="1 layer: stayed f16\n1,024 MiB measured\n(likely the MTP speculative\ndraft layer, not quantizable)"];
+  }
+
+  subgraph cluster_ssm {
+    label="Mamba/SSM recurrent-state layers (majority, ~52 layers)";
+    fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1a1030";
+    ssm [shape=box, fillcolor="#241a3a", color="#8b5cf6", penwidth=2.5,
+         label="llama_memory_recurrent:\nssm.state_size=128  ssm.inner_size=4096\nsize = 142.85 MiB TOTAL for 52 layers\n(R f32: 4.85 MiB, S f32: 138.00 MiB)"];
+    fixed [shape=box, fillcolor="#241a3a", color="#8b5cf6", fontcolor="#39ffb0", penwidth=2.5,
+           label="FIXED SIZE — does NOT grow\nwith context length\n(1 cell, regardless of\n1,048,576-token context)"];
+    ssm -> fixed;
+  }
+
+  model -> attn_q8;
+  model -> attn_f16;
+  model -> ssm;
+
+  total [shape=box, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+         label="TOTAL KV+state @ full 1,048,576 ctx:\nunder 4.4 GiB\n(3264 + 1024 + 143 MiB)"];
+  attn_q8 -> total;
+  attn_f16 -> total;
+  fixed -> total;
+
+  compare [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="Contrast: a dense transformer of similar\nsize (e.g. devstral-small-2:24b) needs\n~21.7 GiB of KV cache alone at a much\nshorter 262,144-token context."];
+  total -> compare [style=dashed, color="#ff4d4d"];
+}

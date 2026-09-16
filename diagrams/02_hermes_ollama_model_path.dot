@@ -1,0 +1,37 @@
+digraph ModelPath {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Hermes -> Ollama model-serving path, and the silent-mismatch footgun";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  cfg [shape=note, fillcolor="#152a3a", color="#39d0ff",
+       label="~/.hermes/config.yaml\nmodel.provider: custom\nmodel.base_url: http://localhost:11434/v1\nmodel.default: <tag>\nmodel.context_length: <n>"];
+  hermes [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Hermes host process"];
+  scope [shape=diamond, fillcolor="#241a0d", color="#ffa93a",
+         label="agent_init.py:\n_scope_context_length_to_default_runtime\nDoes model.default match\nthe active runtime model?"];
+  apply [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="model.context_length\nis honored"];
+  ignore [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="Mismatch: config value SILENTLY\nIGNORED — treated as describing a\nstale/different runtime model"];
+  ollamaapi [shape=box, fillcolor="#2a1f0f", color="#ffa93a", label="Ollama /v1/chat/completions"];
+  ceiling [shape=note, fillcolor="#241a0d", color="#ffa93a",
+           label="systemd override.conf:\nOLLAMA_CONTEXT_LENGTH=262144\n(hard machine-wide ceiling,\nclamps any client request)"];
+  runner [shape=box3d, fillcolor="#2a1f0f", color="#ffa93a", label="llama-server runner\n(actual loaded num_ctx)"];
+
+  cfg -> hermes;
+  hermes -> scope;
+  scope -> apply [label="match", color="#39ffb0"];
+  scope -> ignore [label="mismatch", color="#ff4d4d"];
+  apply -> ollamaapi;
+  ignore -> ollamaapi [style=dashed, color="#ff4d4d", label="falls back to whatever\nthe runtime already had"];
+  ollamaapi -> runner;
+  ceiling -> runner [style=dashed, color="#ffa93a", label="clamps regardless\nof client request"];
+
+  note [shape=plaintext, fontcolor="#39d0ff",
+        label="Also: no separate max-output-tokens knob exists for the\n\"custom\" (local Ollama) provider profile — num_ctx is the\nonly lever. See diagram 07 for the full 3-layer footgun."];
+  runner -> note [style=invis];
+}

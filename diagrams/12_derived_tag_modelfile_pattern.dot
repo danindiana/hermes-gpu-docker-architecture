@@ -1,0 +1,32 @@
+digraph DerivedTagPattern {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Derived-tag Modelfile pattern for custom num_ctx";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  base [shape=box3d, fillcolor="#152a3a", color="#39d0ff", label="Base tag\n(e.g. devstral-small-2:24b\nor nemotron-3.5-lightning:latest)"];
+  modelfile [shape=note, fillcolor="#0f2a20", color="#39ffb0",
+             label="Modelfile:\nFROM <base>\nPARAMETER num_ctx <n>"];
+  create [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="ollama create <new-tag> -f Modelfile"];
+  newtag [shape=box3d, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+          label="Derived tag\nshares base's weight layers\n(ZERO extra disk cost)"];
+
+  base -> modelfile -> create -> newtag;
+
+  ex1 [shape=box, fillcolor="#241a3a", color="#8b5cf6",
+       label="nemotron-3.5-lightning:1m\nnum_ctx=1,048,576\n(full native context)"];
+  ex2 [shape=box, fillcolor="#241a3a", color="#8b5cf6",
+       label="devstral-small-2:24b-196k\nnum_ctx=196,608\n(half of 393,216 native)\nNOW Hermes's active model.default"];
+
+  newtag -> ex1 [style=dashed, color="#8b5cf6"];
+  newtag -> ex2 [style=dashed, color="#8b5cf6"];
+
+  why [shape=plaintext, fontcolor="#ffa93a",
+       label="Why: lets one caller get a huge/custom context\nwithout raising the GLOBAL OLLAMA_CONTEXT_LENGTH\nceiling for every other model sharing this daemon\n(e.g. small 8B chats, embeddings, that can't afford\na proportionally huge KV cache)."];
+  ex2 -> why [style=invis];
+}

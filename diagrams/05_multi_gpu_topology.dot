@@ -1,0 +1,48 @@
+digraph MultiGPUTopology {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Multi-GPU topology: layer-split (pipeline) vs. tensor/row-split";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_real {
+    label="Real topology on the-box (nvidia-smi topo -m)";
+    fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1a1030";
+    cpu [shape=box3d, fillcolor="#241a3a", color="#8b5cf6", label="Ryzen 9 7950X3D\nPCIe root complex"];
+    g0 [shape=box3d, fillcolor="#241a3a", color="#8b5cf6", label="GPU0: RTX 4080 SUPER (16GB)"];
+    g1 [shape=box3d, fillcolor="#241a3a", color="#8b5cf6", label="GPU1: RTX 5070 (12GB)"];
+    cpu -> g0 [label="PHB", color="#8b5cf6"];
+    cpu -> g1 [label="PHB", color="#8b5cf6"];
+    note_nolink [shape=plaintext, fontcolor="#ff9f4d", label="No NVLink between GPU0/GPU1\n(consumer cards, no bridge)"];
+  }
+
+  subgraph cluster_layer {
+    label="Ollama default: layer-split (pipeline) parallelism";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    l_in [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="token in"];
+    l_g0 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="GPU0: layers 0..N\n(weighted by VRAM share)"];
+    l_g1 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="GPU1: layers N+1..end"];
+    l_out [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="token out"];
+    l_in -> l_g0 -> l_g1 -> l_out [label="~16KB hidden-state\nhandoff per token\n(~0.5MB/s @ 30 tok/s)"];
+    l_verdict [shape=box, fillcolor="#0f2a20", color="#39ffb0", fontcolor="#39ffb0",
+               label="PCIe bandwidth need: negligible.\nPHB-only topology is a non-issue here."];
+    l_out -> l_verdict [style=invis];
+  }
+
+  subgraph cluster_row {
+    label="NOT used by default: tensor/row-split (--split-mode row)";
+    fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    r_tensor [shape=box, fillcolor="#2a0d0d", color="#ff4d4d", label="single tensor op\nsplit across both GPUs"];
+    r_rt [shape=box, fillcolor="#2a0d0d", color="#ff4d4d", label="round-trips every op\n(floods PCIe bus,\nneeds NVLink to be fast)"];
+    r_verdict [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+               label="On plain PCIe (no NVLink):\nusually SLOWER than layer-split"];
+    r_tensor -> r_rt -> r_verdict;
+  }
+
+  g0 -> l_g0 [style=dotted, color="#556070"];
+  g1 -> l_g1 [style=dotted, color="#556070"];
+}

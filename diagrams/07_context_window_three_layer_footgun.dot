@@ -1,0 +1,32 @@
+digraph ThreeLayerFootgun {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="The 3-layer context-window footgun";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  l1 [shape=box, fillcolor="#152a3a", color="#39d0ff",
+      label="Layer 1: ~/.hermes/config.yaml\nmodel.context_length\n(necessary but not sufficient alone)"];
+  l2 [shape=box, fillcolor="#241a0d", color="#ffa93a",
+      label="Layer 2: model.default must MATCH\nthe actually-running model, or Hermes\nsilently ignores model.context_length\n(agent_init.py::_scope_context_length_to_default_runtime)"];
+  l3 [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+      label="Layer 3: systemd OLLAMA_CONTEXT_LENGTH\nhard machine-wide ceiling — clamps any\nclient-requested num_ctx regardless of\nwhat layers 1/2 asked for"];
+
+  l1 -> l2 -> l3 [label="all three must agree"];
+
+  result_bad [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+              label="Any ONE layer wrong ->\nsilent truncation / finish_reason='length'\n(no error, just a short answer)"];
+  result_good [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+               label="All three aligned ->\nfull intended context actually usable\n(verified: ollama ps CONTEXT column\n+ journalctl runner.num_ctx)"];
+
+  l3 -> result_bad [style=dashed, color="#ff4d4d", label="mismatch"];
+  l3 -> result_good [color="#39ffb0", label="match"];
+
+  finding [shape=plaintext, fontcolor="#8b5cf6",
+           label="Also found: the \"custom\" (local Ollama) provider\nprofile never sends max_tokens to Ollama at all —\nnum_ctx is the ONLY output-length lever for this\nprovider. Reasoning-effort params only forward to\nOpenRouter / Nous Portal / Ollama Cloud, not localhost."];
+  result_good -> finding [style=invis];
+}

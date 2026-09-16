@@ -1,0 +1,41 @@
+digraph GPUPassthrough {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="GPU passthrough into the sandbox: before / after";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_before {
+    label="BEFORE";
+    fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    b_args [shape=note, fillcolor="#2a0d0d", color="#ff4d4d",
+            label="docker_extra_args:\n  --add-host=host.docker.internal:host-gateway\n(no --gpus flag)"];
+    b_container [shape=box, fillcolor="#2a0d0d", color="#ff4d4d", label="sandbox container\nNO GPU device nodes\nNO nvidia-smi binary"];
+    b_result [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+              label="nvidia-smi: command not found"];
+    b_args -> b_container -> b_result;
+  }
+
+  subgraph cluster_after {
+    label="AFTER (this session)";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    a_args [shape=note, fillcolor="#0d2a1a", color="#39ffb0",
+            label="docker_extra_args:\n  --add-host=host.docker.internal:host-gateway\n  --gpus=all"];
+    toolkit [shape=box, fillcolor="#152a3a", color="#39d0ff",
+             label="NVIDIA Container Toolkit\n(nvidia-container-toolkit 1.20.0-1,\nalready installed on host)"];
+    inject [shape=box, fillcolor="#152a3a", color="#39d0ff",
+            label="auto-injects driver libs +\nCLI tools (nvidia-smi) into container\nat docker-run time"];
+    a_container [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="sandbox container\n/dev/nvidia* visible\nnvidia-smi present"];
+    a_result [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+              label="nvidia-smi works:\nboth GPUs correctly reported\n(verified with real docker run test)"];
+    a_args -> toolkit -> inject -> a_container -> a_result;
+  }
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="Deliberate trade-off: widens the sandbox beyond its\nshell/file-only design scope. Confirmed with the operator\nbefore applying. Model-serving itself was never affected\neither way — it always talks host-process to Ollama's API\ndirectly, bypassing this sandbox."];
+  a_result -> note [style=invis];
+}

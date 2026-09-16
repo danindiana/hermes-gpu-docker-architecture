@@ -1,0 +1,37 @@
+digraph WeightVsKV {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Two orthogonal knobs, easy to conflate";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_weight {
+    label="Weight quantization"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    w1 [shape=box, fillcolor="#152a3a", color="#39d0ff", label="GGUF file format:\nQ4_K_M / Q5_K_M / Q6_K / Q8_0"];
+    w2 [shape=box, fillcolor="#152a3a", color="#39d0ff", label="Compresses the model's\nTRAINED PARAMETERS"];
+    w3 [shape=box, fillcolor="#152a3a", color="#39d0ff", label="FIXED at build/pull time\n(baked into the tag)"];
+    w1 -> w2 -> w3;
+  }
+
+  subgraph cluster_kv {
+    label="KV-cache quantization"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    k1 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="OLLAMA_KV_CACHE_TYPE:\nf16 (default) / q8_0 / q4_0"];
+    k2 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Compresses the RUNTIME\nattention Key/Value buffer"];
+    k3 [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Set at Ollama DAEMON startup,\nscales with context length"];
+    k1 -> k2 -> k3;
+  }
+
+  myth [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="MYTH: \"a Q4 model already has a\nquantized KV cache\" — FALSE.\nConfirmed on this box: every model,\nQ4 or not, paid full f16 KV-cache\ncost until OLLAMA_KV_CACHE_TYPE\nwas explicitly set."];
+
+  w3 -> myth [style=dashed, color="#ff4d4d"];
+  k3 -> myth [style=dashed, color="#ff4d4d"];
+
+  reality [shape=box, fillcolor="#241a0d", color="#ffa93a",
+           label="Reality: fully independent settings.\nA Q4 weight quant gets ZERO automatic\nKV-cache benefit without also setting\nOLLAMA_KV_CACHE_TYPE (and being on the\narchitecture allowlist — see diagram 09)."];
+  myth -> reality;
+}

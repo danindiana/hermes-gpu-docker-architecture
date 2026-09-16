@@ -1,0 +1,28 @@
+digraph Mem0Pipeline {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="mem0 memory pipeline — decoupled from the active chat model";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  turn [shape=box, fillcolor="#152a3a", color="#39d0ff", label="Turn / session boundary"];
+  extractor [shape=box, fillcolor="#241a0d", color="#ffa93a",
+             label="mem0-extractor-cpu\n(derived from qwen3:4b-instruct-2507-q8_0,\nPARAMETER num_gpu 0, num_ctx 16384)\n100% CPU — costs nothing that matters\n(176GB free system RAM)"];
+  embedder [shape=box, fillcolor="#241a3a", color="#8b5cf6", label="nomic-embed-text\n(GPU, ~397MB when resident)"];
+  qdrant [shape=cylinder, fillcolor="#0f2a20", color="#39ffb0", label="Qdrant (embedded, on-disk)\nper-profile: mem0_qdrant/"];
+
+  turn -> extractor [label="fires on every\nturn boundary"];
+  extractor -> qdrant [label="structured memory\nwrite"];
+  turn -> embedder [label="vector embedding"];
+  embedder -> qdrant;
+
+  chat [shape=box3d, fillcolor="#0f2a20", color="#39ffb0", label="Active chat model\n(GPU — whatever model.default is)"];
+  note [shape=plaintext, fontcolor="#39ffb0",
+        label="Chat model can change freely (devstral, nemotron,\nfuture picks) WITHOUT touching mem0 config —\nextractor/embedder are static, fully decoupled.\nRejected alternative: reusing the live chat model\nfor extraction (no such mechanism exists in\nhermes-agent's mem0 plugin; extraction quality\nwould also ride on whatever model is being\nexperimented with that day)."];
+  chat -> turn [style=dashed, color="#556070"];
+  qdrant -> note [style=invis];
+}

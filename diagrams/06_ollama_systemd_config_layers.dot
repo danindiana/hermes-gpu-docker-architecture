@@ -1,0 +1,48 @@
+digraph SystemdConfigLayers {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="/etc/systemd/system/ollama.service.d/override.conf — env vars grouped by concern";
+  labelloc="t";
+  fontsize=20;
+  node [shape=box, style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [style=invis];
+
+  subgraph cluster_net {
+    label="Networking"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    net1 [fillcolor="#152a3a", color="#39d0ff", label="OLLAMA_HOST=0.0.0.0:11434"];
+    net2 [fillcolor="#152a3a", color="#39d0ff", label="OLLAMA_ORIGINS=*"];
+  }
+
+  subgraph cluster_gpu {
+    label="GPU / concurrency"; fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1a1030";
+    gpu1 [fillcolor="#241a3a", color="#8b5cf6", label="CUDA_VISIBLE_DEVICES=0,1"];
+    gpu2 [fillcolor="#241a3a", color="#8b5cf6", label="OLLAMA_SCHED_SPREAD=true"];
+    gpu3 [fillcolor="#241a3a", color="#8b5cf6", label="OLLAMA_NUM_GPU=2"];
+  }
+
+  subgraph cluster_attn {
+    label="Attention / KV cache"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    a1 [fillcolor="#0f2a20", color="#39ffb0", label="OLLAMA_FLASH_ATTENTION=1\n(prerequisite)"];
+    a2 [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="OLLAMA_KV_CACHE_TYPE=q8_0\n(added this session — roughly\nhalves KV VRAM on allowlisted arches)"];
+  }
+
+  subgraph cluster_res {
+    label="Resource management"; fontcolor="#ffa93a"; color="#ffa93a"; style=dashed; bgcolor="#241a0d";
+    r1 [fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_MAX_LOADED_MODELS=3\n(was 2 -> thrashing fix)"];
+    r2 [fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_NUM_PARALLEL=1\n(was 2 -> halves reserved\nKV-cache slots)"];
+    r3 [fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_GPU_OVERHEAD=1GiB/GPU\n(desktop headroom reserved)"];
+    r4 [fillcolor="#2a1f0f", color="#ffa93a", label="OLLAMA_KEEP_ALIVE=10m\n(was 5m)"];
+  }
+
+  subgraph cluster_ceiling {
+    label="Context ceiling"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    c1 [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="OLLAMA_CONTEXT_LENGTH=262144\n(machine-wide hard ceiling —\nclamps every model regardless\nof native context)"];
+  }
+
+  legend [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+          label="History: 65536 -> 131072 (OpenClaw) ->\n262144 (ornith-1.5 truncation fix,\nthen devstral/nemotron long-context work)"];
+}

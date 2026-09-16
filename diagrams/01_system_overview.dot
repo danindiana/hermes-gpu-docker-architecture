@@ -1,0 +1,61 @@
+digraph SystemOverview {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="System Overview — Hermes Agent + Ollama + Docker Sandbox on a dual-GPU box";
+  labelloc="t";
+  fontsize=22;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  user [shape=box, fillcolor="#152a3a", color="#39d0ff", label="Human operator\n(terminal / pts session)"];
+
+  subgraph cluster_host {
+    label="the-box (host OS, Linux)";
+    fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+
+    hermes [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Hermes Agent process\n(Python venv, ~/.hermes)"];
+
+    subgraph cluster_ollama {
+      label="Ollama daemon (systemd service)";
+      fontcolor="#ffa93a"; color="#ffa93a"; style=dashed; bgcolor="#241a0d";
+      ollama [shape=box, fillcolor="#2a1f0f", color="#ffa93a", label="ollama serve\nOpenAI-compatible /v1 API\n:11434"];
+      models [shape=folder, fillcolor="#2a1f0f", color="#ffa93a", label="Model store\n(GGUF blobs + derived tags)"];
+      ollama -> models;
+    }
+
+    subgraph cluster_gpus {
+      label="GPUs (CUDA_VISIBLE_DEVICES=0,1)";
+      fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1a1030";
+      gpu0 [shape=box3d, fillcolor="#241a3a", color="#8b5cf6", label="GPU0: RTX 4080 SUPER\n16 GB VRAM"];
+      gpu1 [shape=box3d, fillcolor="#241a3a", color="#8b5cf6", label="GPU1: RTX 5070\n12 GB VRAM"];
+    }
+
+    subgraph cluster_mem0 {
+      label="mem0 memory pipeline";
+      fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+      extractor [shape=box, fillcolor="#152a3a", color="#39d0ff", label="mem0-extractor-cpu\n(CPU-pinned)"];
+      embedder [shape=box, fillcolor="#152a3a", color="#39d0ff", label="nomic-embed-text\n(GPU)"];
+      qdrant [shape=cylinder, fillcolor="#152a3a", color="#39d0ff", label="Qdrant (embedded, on disk)"];
+    }
+
+    subgraph cluster_sandbox {
+      label="Docker sandbox (terminal.backend: docker)\nCapDrop=ALL, non-root, --gpus=all";
+      fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+      container [shape=box, fillcolor="#2a1a0d", color="#ff9f4d", label="hermes-sandbox:graphviz\ncontainer (persistent)"];
+    }
+  }
+
+  user -> hermes [label="chat / tool requests"];
+  hermes -> ollama [label="model.base_url\nhttp://localhost:11434/v1"];
+  hermes -> extractor [label="memory extraction\n(every turn boundary)"];
+  hermes -> embedder [style=dotted];
+  extractor -> qdrant;
+  embedder -> qdrant;
+  hermes -> container [label="terminal / write_file /\nexecute_code tool calls"];
+  ollama -> gpu0 [color="#8b5cf6"];
+  ollama -> gpu1 [color="#8b5cf6"];
+  container -> gpu0 [style=dashed, color="#ff9f4d", label="--gpus=all\n(nvidia-smi visible)"];
+  container -> gpu1 [style=dashed, color="#ff9f4d"];
+}

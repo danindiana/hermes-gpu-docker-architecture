@@ -1,0 +1,42 @@
+digraph SandboxIsolation {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Docker sandbox isolation (condensed — full incident narrative in hermes-agent-blast-radius)";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_host {
+    label="the-box (real host filesystem)";
+    fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    home [shape=folder, fillcolor="#152a3a", color="#39d0ff", label="$HOME\n(not mounted)"];
+    ws_host [shape=folder, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+             label="Documents/hermes-sessions/\n(the ONLY writable mount)"];
+  }
+
+  hermes [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="Hermes Agent process\n(runs as host OS user)"];
+  tool [shape=box, fillcolor="#0f2a20", color="#39ffb0", label="terminal / write_file /\nexecute_code tool calls"];
+
+  subgraph cluster_container {
+    label="Docker sandbox container\n--cap-drop ALL  --user (host uid:gid)\n--security-opt no-new-privileges";
+    fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    ws_c [shape=folder, fillcolor="#2a1a0d", color="#ff9f4d", label="/workspace\n(bind-mounted rw)"];
+    chome [shape=folder, fillcolor="#241a0d", color="#556070", label="container $HOME\n(sandbox-only scratch,\nAGENTS.md points agent to /workspace)"];
+  }
+
+  hermes -> tool;
+  tool -> ws_c [label="rm -rf here at worst\ndestroys only /workspace"];
+  ws_c -> ws_host [label="bind mount", penwidth=2.5];
+  tool -> chome [style=dotted];
+
+  block [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+         label="$HOME itself: not mounted\nescape attempts -> Permission denied"];
+  tool -> block [style=dashed, color="#ff4d4d", label="attempted reach\n(blocked)"];
+
+  ref [shape=plaintext, fontcolor="#8b5cf6",
+       label="Full incident (autonomous rm -rf, root cause, and this\nfix being applied) is documented in a separate repo:\ngithub.com/danindiana/hermes-agent-blast-radius"];
+  block -> ref [style=invis];
+}

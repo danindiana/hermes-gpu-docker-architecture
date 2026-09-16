@@ -1,0 +1,41 @@
+digraph KVCacheMechanics {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="KV cache quantization mechanics — real measured buffer split (devstral-small-2:24b @ 262144 ctx)";
+  labelloc="t";
+  fontsize=18;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  launch [shape=note, fillcolor="#152a3a", color="#39d0ff",
+          label="llama-server launch args (real, from journalctl):\n--cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on -c 262144"];
+
+  subgraph cluster_f16 {
+    label="BEFORE: f16 KV cache (default, unset OLLAMA_KV_CACHE_TYPE)";
+    fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    f16_total [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+               label="Would-be total: ~43.5 GiB\n(2 bytes/element x K+V)"];
+  }
+
+  subgraph cluster_q8 {
+    label="AFTER: q8_0 KV cache (this session's change)";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    total [shape=box, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+           label="Measured total: 21,760 MiB\nK (q8_0): 10,880 MiB  V (q8_0): 10,880 MiB\n40 layers, 262144 cells"];
+    cpu_buf [shape=box, fillcolor="#241a0d", color="#ffa93a", label="CPU KV buffer\n10,336 MiB"];
+    g0_buf [shape=box, fillcolor="#241a3a", color="#8b5cf6", label="CUDA0 KV buffer\n7,072 MiB"];
+    g1_buf [shape=box, fillcolor="#241a3a", color="#8b5cf6", label="CUDA1 KV buffer\n4,352 MiB"];
+    total -> cpu_buf;
+    total -> g0_buf;
+    total -> g1_buf;
+  }
+
+  launch -> f16_total [style=dashed, color="#ff4d4d", label="if unset"];
+  launch -> total [color="#39ffb0", label="actual"];
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="Buffer placement follows whatever layer-split the scheduler\nchose (see diagram 05) — quantizing shrinks all three\nbuffers together, not just one GPU's share.\nWeights (15GB) + this KV cache still exceed combined\n~28GB VRAM at full 262144 ctx, hence real CPU offload."];
+  g0_buf -> note [style=invis];
+}

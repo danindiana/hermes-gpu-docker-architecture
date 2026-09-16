@@ -1,0 +1,40 @@
+digraph AllowlistContrast {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="KV-quant architecture allowlist: three real contrast cases";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  allow [shape=note, fillcolor="#152a3a", color="#39d0ff",
+         label="Ollama allowlist (github.com/ollama/ollama #13337):\ngemma3, gptoss/gpt-oss, mistral3,\nqwen3, qwen3moe, qwen3vl, qwen3vlmoe"];
+
+  subgraph cluster_yes {
+    label="ALLOWLISTED — confirmed live"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0d2a1a";
+    devstral [shape=box, fillcolor="#0f2a20", color="#39ffb0",
+              label="devstral-small-2:24b\narch: mistral3\nconfirmed: --cache-type-k/v q8_0\nin real llama-server launch args"];
+  }
+
+  subgraph cluster_no {
+    label="NOT ALLOWLISTED — silent f16 fallback"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#2a0d0d";
+    nemo [shape=box, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="mistral-nemo:12b\narch: llama (NOT mistral3 —\nMistral-family models commonly\nreuse the standard llama.cpp arch)\nexpected: stays f16, no error/warning"];
+  }
+
+  subgraph cluster_partial {
+    label="HYBRID — partial quantization"; fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1a1030";
+    nemotron [shape=box, fillcolor="#241a3a", color="#8b5cf6",
+              label="nemotron-3.5-lightning:1m\narch: nemotron_h_moe (not on the\ndocumented allowlist, quantized anyway)\nmeasured: 6 attn layers q8_0 (3264 MiB),\n1 layer stayed f16 (1024 MiB), plus a\nfixed-size 142.85 MiB SSM recurrent state"];
+  }
+
+  allow -> devstral [color="#39ffb0"];
+  allow -> nemo [style=dashed, color="#ff4d4d", label="not covered"];
+  allow -> nemotron [style=dashed, color="#8b5cf6", label="hybrid, partially\napplies anyway"];
+
+  warn [shape=plaintext, fontcolor="#ffa93a",
+        label="Fallback is SILENT — no error, no warning in logs.\nAlways verify via journalctl grep for\ncache-type-k/cache-type-v in the actual\nlaunched llama-server command, not just config."];
+  nemo -> warn [style=invis];
+}
