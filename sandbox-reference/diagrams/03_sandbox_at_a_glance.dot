@@ -1,0 +1,51 @@
+digraph SandboxAtAGlance {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="hermes-sandbox:graphviz — cheat sheet";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box];
+
+  subgraph cluster_id {
+    label="Identity & hardening"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    node [color="#39d0ff", fillcolor="#152a3a"];
+    id1 [label="uid 1000 (\"pn\"), non-root"];
+    id2 [label="--cap-drop ALL"];
+    id3 [label="--security-opt no-new-privileges"];
+    id4 [label="1 persistent container per\nHermes profile"];
+  }
+
+  subgraph cluster_net {
+    label="Network"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    node [color="#39ffb0", fillcolor="#0f2a20"];
+    n1 [label="docker_network: true → bridge mode"];
+    n2 [label="DNS 1.1.1.1 / 8.8.8.8, working"];
+    n3 [label="No egress proxy\n(hermes-egress: off label)"];
+    n4 [label="Verified: general internet +\narXiv API + PDF download"];
+  }
+
+  subgraph cluster_present {
+    label="Present"; fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1c1430";
+    node [color="#8b5cf6", fillcolor="#1c1430"];
+    p1 [label="curl, wget"];
+    p2 [label="python3, pip3"];
+    p3 [label="node, npm, git"];
+    p4 [label="dot (Graphviz)"];
+    p5 [label="pypdf (pure-Python)"];
+  }
+
+  subgraph cluster_absent {
+    label="Absent (as of this writeup)"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#3a0d0d";
+    node [color="#ff4d4d", fillcolor="#3a0d0d", fontcolor="#ffdada"];
+    a1 [label="docker CLI / docker.sock\n(deliberate)"];
+    a2 [label="nvidia-smi\n(configured, not yet live)"];
+    a3 [label="fitz/PyMuPDF, pdfplumber,\npdfminer, PyPDF2 (stock)"];
+    a4 [label="pdftotext, ghostscript,\nmupdf, qpdf, jq"];
+    a5 [label="sudo → apt/apt-get\ncan't actually install anything"];
+  }
+
+  legend [shape=plaintext, fontcolor="#ffa93a",
+          label="Green = available now  |  Purple = tool present  |  Red = missing or blocked  |  Blue = network/identity facts"];
+}

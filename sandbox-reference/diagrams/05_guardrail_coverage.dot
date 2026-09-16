@@ -1,0 +1,32 @@
+digraph GuardrailCoverage {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Guardrails layered on top of the sandbox — what's covered, what isn't";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  deny [fillcolor="#0f2a20", color="#39ffb0",
+        label="approvals.deny\nrm -rf */\nrm -rf ~/Documents/*"];
+  denytest [fillcolor="#152a3a", color="#39d0ff",
+            label="Production-tested against a real\nmatching command — blocked\nunconditionally, any approval mode"];
+  deny -> denytest;
+
+  ckpt [fillcolor="#0f2a20", color="#39ffb0",
+        label="checkpoints.enabled: true\nmax_snapshots: 20"];
+  ws [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+      label="/workspace\ncovered — git-style\nsnapshots before risky ops"];
+  ckpt -> ws;
+
+  home [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="Container's own $HOME\n(/home/pn)\nNOT covered — confirmed by\na real `rm` there: no checkpoint"];
+  ckpt -> home [style=dashed, color="#ff4d4d", label="known gap"];
+
+  rule [shape=plaintext, fontcolor="#8b5cf6",
+        label="Operational rule: always operate under /workspace explicitly.\nDon't rely on default cwd — fixes both findability and checkpoint coverage."];
+  home -> rule [style=invis];
+  denytest -> rule [style=invis];
+}

@@ -1,0 +1,38 @@
+digraph PdfToolingGapAndFix {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Unblocking a real \"PyMuPDF/fitz not installed\" extraction failure";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  task [fillcolor="#241a0d", color="#ff9f4d",
+        label="Hermes tool call:\nimport fitz → ModuleNotFoundError\n(blocked extraction task)"];
+
+  survey [fillcolor="#152a3a", color="#39d0ff",
+          label="Live survey inside the sandbox:\npypdf 6.19.0 present\nfitz/PyMuPDF, PyPDF2, pdfplumber,\npdfminer: all absent\nNo CLI PDF tools at all"];
+  task -> survey;
+
+  blocked [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="apt-get install ...\nfails: uid 1000, no sudo,\nno write access to system dirs"];
+  survey -> blocked [label="tried the obvious fix"];
+
+  works [fillcolor="#0f2a20", color="#39ffb0",
+         label="pip3 install --user pymupdf\nPyPI reachable, resolves fine\n→ falls back to --user automatically"];
+  survey -> works [label="actual working fix"];
+
+  verify [fillcolor="#0f2a20", color="#39ffb0",
+          label="import fitz → works (1.28.2)\n(deprecation notice only:\nprefer import pymupdf)"];
+  works -> verify;
+
+  caveat [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="Lands in /home/pn/.local\n— NOT bind-mounted (see diagram 1)\nsurvives Hermes restarts,\nWIPED on container recreation"];
+  verify -> caveat;
+
+  redo [fillcolor="#241a0d", color="#ff9f4d",
+        label="If GPU-passthrough fix (diagram 2)\never recreates this container:\nrerun the same pip3 install"];
+  caveat -> redo [style=dashed];
+}

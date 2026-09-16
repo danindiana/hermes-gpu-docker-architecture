@@ -1,0 +1,46 @@
+digraph FilesystemMountTruthTable {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Sandbox filesystem: what's actually mounted vs. assumed";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_host {
+    label="the-box (real host filesystem)";
+    fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    real_home [shape=folder, fillcolor="#152a3a", color="#556070",
+               label="real $HOME\n(the operator's actual home dir)\nNEVER mounted"];
+    ws_host [shape=folder, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+             label="~/Documents/hermes-sessions\n(the ONLY writable mount)"];
+    sandbox_home_dir [shape=folder, fillcolor="#152a3a", color="#39d0ff",
+             label="~/.hermes/sandboxes/docker/<profile>/home\n(a real host dir Hermes maintains...)"];
+  }
+
+  subgraph cluster_container {
+    label="hermes-sandbox:graphviz container (runtime user: uid 1000, \"pn\")";
+    fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    ws_c [shape=folder, fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+          label="/workspace\n(cwd; checkpointed;\nsurvives container recreation)"];
+    root_c [shape=folder, fillcolor="#241a0d", color="#39d0ff",
+            label="/root\n(...but bind-mounted HERE —\na path the runtime user never uses)"];
+    home_pn [shape=folder, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+             label="/home/pn  ($HOME for uid 1000)\nNOT bind-mounted at all\ncontainer's own writable layer only"];
+  }
+
+  ws_host -> ws_c [label="bind mount", penwidth=2.5, dir=both];
+  sandbox_home_dir -> root_c [label="bind mount", color="#39d0ff", dir=both];
+
+  gap [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+       label="pip3 install --user <pkg>\nwrites HERE (HOME=/home/pn)\n→ lost on next container\nrecreation, not checkpointed"];
+  home_pn -> gap [style=dashed, color="#ff4d4d"];
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="Confirmed live via `docker inspect --format '{{.Mounts}}'`\nand `docker exec ... env | grep HOME`.\nAlways write anything that matters to /workspace."];
+  gap -> note [style=invis];
+
+  real_home -> ws_c [style=invis];
+}

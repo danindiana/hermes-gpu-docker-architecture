@@ -1,0 +1,42 @@
+digraph ContainerReuseIgnoresConfig {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Persistent-container reuse: config changes don't apply until you remove it";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", color="#556070", penwidth=1.5, shape=box];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  cfg1 [fillcolor="#0f2a20", color="#39ffb0",
+        label="terminal.docker_extra_args gains\n--gpus=all in ~/.hermes/config.yaml"];
+  create [fillcolor="#152a3a", color="#39d0ff",
+          label="Container created once, labeled\nhermes-profile=<active profile>\n(\"the reuse identity is captured at\nstart and never changes for the\ncontainer's lifetime\" — docker.py)"];
+  cfg1 -> create [style=dashed, label="config alone changes\nnothing yet"];
+
+  restart1 [fillcolor="#241a0d", color="#ff9f4d",
+            label="Hermes process restarts (#1)\nnew PID"];
+  restart2 [fillcolor="#241a0d", color="#ff9f4d",
+            label="Hermes process restarts (#2)\nanother new PID"];
+  lookup [fillcolor="#152a3a", color="#39d0ff",
+          label="_attach_existing_container():\nfinds a RUNNING container with\nmatching hermes-profile label\n→ reattaches, does NOT recreate"];
+
+  create -> restart1 -> lookup;
+  lookup -> restart2 -> lookup [label="same container\nevery time"];
+
+  stale [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+         label="docker exec <container> nvidia-smi\nstill: \"executable file not found\"\n(confirmed after BOTH restarts)"];
+  lookup -> stale;
+
+  fix [fillcolor="#0f2a20", color="#39ffb0",
+       label="docker rm -f hermes-<hash>\n(only when Hermes is idle)"];
+  fresh [fillcolor="#152a3a", color="#39d0ff",
+         label="\"No such container\" recovery path:\nnext terminal/execute_code call\nruns a FRESH docker run with the\nCURRENT config — --gpus=all now live"];
+  stale -> fix [color="#ff4d4d", style=dashed, label="the only thing\nthat actually works"];
+  fix -> fresh;
+
+  rule [shape=plaintext, fontcolor="#8b5cf6",
+        label="General rule, not GPU-specific: docker_extra_args, docker_volumes,\ndocker_image, docker_network — none of these take effect on an\nalready-running persistent container. Hermes restart ≠ sandbox restart."];
+  fresh -> rule [style=invis];
+}

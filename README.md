@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-19%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-24%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -49,8 +49,9 @@ three-layer context-window footgun that's easy to fall into with any local-Ollam
 
 ## The diagrams
 
-All 16 diagrams live in [`diagrams/`](diagrams/) as Graphviz `.dot` sources (3 more in
-[`workspace-persistence/diagrams/`](workspace-persistence/diagrams/), covered separately below),
+16 diagrams live in [`diagrams/`](diagrams/) as Graphviz `.dot` sources (3 more in
+[`workspace-persistence/diagrams/`](workspace-persistence/diagrams/) and 5 more in
+[`sandbox-reference/diagrams/`](sandbox-reference/diagrams/), both covered separately below),
 each rendered to both
 `.svg` and `.png` (dark-background, neon-accent style — full color legend in each diagram's own
 subgraph labels). Click any title below to open the SVG.
@@ -199,6 +200,28 @@ write-location safety net) for anyone who wants to take it further.
 - [`workspace-persistence/RESEARCH_PROPOSAL.md`](workspace-persistence/RESEARCH_PROPOSAL.md) — problem statement, root cause, fix, evaluation plan
 - [`workspace-persistence/SOURCE_TRACE.md`](workspace-persistence/SOURCE_TRACE.md) — the file:line source trace and real verification output
 - [`workspace-persistence/diagrams/`](workspace-persistence/diagrams/) — 3 more diagrams: the cwd resolution decision path, the AGENTS.md discovery chain, and before/after write location
+
+## Sandbox reference: what config says vs. what's actually running
+
+A second self-contained subfolder, [`sandbox-reference/`](sandbox-reference/),
+is a compact tool-spec-style reference to the Docker sandbox itself —
+filesystem mounts, network, GPU access, resource limits, tools present/
+absent, and guardrail coverage. It's the same document the source
+deployment keeps inside its own agent's mounted workspace, so the agent
+can read it directly.
+
+Two findings surfaced only by using the sandbox for a while, not by
+reading its config: a **persistent container's reuse is keyed by a
+profile label fixed at creation time**, so `docker_extra_args` changes
+(GPU passthrough, in this case) silently don't apply across a Hermes
+process restart — only an explicit container removal picks up new
+config; and the **runtime user's actual `$HOME` isn't the host directory
+it looks like it should be** — a `pip install --user` landed somewhere
+that doesn't survive a container recreation.
+
+- [`sandbox-reference/README.md`](sandbox-reference/README.md) — narrative tour + 5 diagrams
+- [`sandbox-reference/REFERENCE.md`](sandbox-reference/REFERENCE.md) — the full tool-spec-style reference doc
+- [`sandbox-reference/diagrams/`](sandbox-reference/diagrams/) — 5 more diagrams: filesystem mount truth table, container-reuse-ignores-config mechanism, sandbox-at-a-glance cheat sheet, a real PDF-tooling gap and fix, and guardrail coverage
 
 ## License
 
