@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-4%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-5%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
   <img alt="capabilities" src="https://img.shields.io/badge/theme-Linux%20capabilities-8b5cf6">
@@ -75,6 +75,26 @@ subfolder expands into standalone diagrams and a self-contained script.
    exposure tier from read-only PCI/hardware facts, declined by the
    operator rather than added as a side effect of "install a log viewer."
 
+5. **[PDF batch summarization: splitting extraction from insight](diagrams/05_pdf_batch_summarization_split.svg)**
+   — asked to turn a batch of PDFs into per-paper `.md` summaries, the
+   agent's `execute_code` calls hit repeated Python syntax errors trying
+   to do text extraction *and* summary-writing in one fragile inline
+   step, gave up, and shipped `.md` files with a title and nothing else.
+   PyMuPDF itself worked fine when tested directly — the failure was the
+   model's own ad-hoc code. Fix: install `poppler-utils`
+   (`pdftotext`/`pdfinfo`, same `APT::Sandbox::User=root` technique as
+   the rest of this subfolder) and
+   [`scripts/pdf_summary_skeleton.py`](scripts/pdf_summary_skeleton.py),
+   which does the reliable half (extract text, pull real title/author/
+   page-count metadata, write a skeleton `.md`) and leaves only the part
+   that actually needs the model — reading the extracted text and
+   writing the insights — as an explicit `TODO`. Also detects and flags
+   extraction failures instead of silently producing junk; caught a real
+   case live (an old failed download saved as `.pdf` that was actually
+   an HTML error page). Verified against 10 real astronomy papers already
+   in the operator's workspace: 100% correct metadata extraction,
+   45K–267K characters of real body text each.
+
 ## Key takeaways
 
 - **"Not available" can mean two very different things** in a hardened
@@ -101,6 +121,12 @@ subfolder expands into standalone diagrams and a self-contained script.
   on its own; piping real host logs into it is not the same tier of
   decision and deserves its own explicit yes/no, even when the tool
   request and the data-exposure request arrive in the same sentence.
+- **When an agent's own generated code keeps failing, check whether the
+  task should be split, not just retried.** A single step that mixes
+  "extract structured data reliably" with "write free-form prose" pushes
+  a model toward writing more code than it can reliably get right in one
+  shot. Splitting the reliable, scriptable part out (as a real, tested
+  tool) leaves the model only the part it's actually good at.
 
 ## Related
 

@@ -1,0 +1,54 @@
+digraph PdfBatchSummarizationSplit {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"The summary files don't include any actual summaries?\" — splitting extraction from insight";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Ask: summarize a batch of PDFs\ninto per-paper .md files\nwith the core insights"];
+
+  attempt [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="Agent tries: one execute_code call that\nextracts text (PyMuPDF) AND writes\nthe summary, inline, from scratch,\nevery single time"];
+  ask -> attempt;
+
+  fail [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="Repeated Python syntax errors:\nf-string mistakes, \"leading zeros\nin decimal integer\", etc.\nEventually gives up."];
+  attempt -> fail;
+
+  junk [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="Shipped .md files: title only +\n\"(See source PDF for full document)\"\nNO actual summary content"];
+  fail -> junk;
+
+  diagnosis [fillcolor="#152a3a", color="#39d0ff",
+             label="Root cause confirmed live:\nPyMuPDF itself works fine\n(pymupdf.open(...) extracts real\ntext correctly) — the failure was\nthe MODEL's fragile inline code,\nnot the library"];
+  junk -> diagnosis [style=dashed, color="#8b5cf6"];
+
+  subgraph cluster_fix {
+    label="Fix: split into a reliable half and a model half";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    tool [fillcolor="#0f2a20", color="#39ffb0",
+          label="poppler-utils installed\n(pdftotext, pdfinfo — single\nshell command, near-zero\nsyntax-error surface)"];
+    script [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+            label="scripts/pdf_summary_skeleton.py\nfor each PDF: pdftotext -> .txt,\npdfinfo -> real title/author/pages,\nwrites .md with metadata filled in\n+ \"## Core insights: TODO\""];
+    tool -> script;
+  }
+  diagnosis -> tool;
+
+  modeljob [fillcolor="#241a0d", color="#ff9f4d",
+            label="Model's remaining job:\nread the .txt, write the\nactual insights — no code\ngeneration required at all"];
+  script -> modeljob;
+
+  guard [fillcolor="#152a3a", color="#39d0ff",
+         label="Extraction-failure guard, caught live:\na paper_000.pdf in a different batch\nwas actually an HTML arXiv error page\n(bad download) — flagged \"EXTRACTION\nFAILED\", not silently summarized"];
+  script -> guard [style=dashed];
+
+  verified [shape=plaintext, fontcolor="#8b5cf6",
+            label="Verified against 10 real astronomy papers already in this workspace:\n100% correct title/author extraction, 45K-267K chars of real body text each."];
+  modeljob -> verified [style=invis];
+  guard -> verified [style=invis];
+}

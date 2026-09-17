@@ -221,6 +221,23 @@ docker exec -u root hermes-<hash> sh -c \
   systemd/service history; the journal) exist but were **declined** —
   a bigger exposure tier than read-only PCI/hardware facts, not granted
   as a side effect of "add a log viewer."
+- **`poppler-utils`** (`pdftotext`/`pdfinfo`) — installed after a real
+  batch-PDF-summarization failure: asked to turn a batch of PDFs into
+  per-paper `.md` summaries, the agent's `execute_code` calls hit
+  repeated Python syntax errors trying to extract text *and* write
+  summaries in one fragile inline step, and shipped `.md` files with a
+  title and no actual content. PyMuPDF itself worked fine when tested
+  directly — the failure was the model's own ad-hoc code, not the
+  library. Fix: `pdftotext`/`pdfinfo` (single shell commands, near-zero
+  syntax-error surface) plus
+  [`hardware-introspection/scripts/pdf_summary_skeleton.py`](hardware-introspection/scripts/pdf_summary_skeleton.py),
+  which does the reliable half (extract text, pull real metadata, write
+  a skeleton `.md`) and leaves only the part that needs the model —
+  reading the text and writing insights — as an explicit `TODO`. Also
+  flags extraction failures instead of silently producing junk; caught a
+  real case live (an old failed download saved as `.pdf` that was
+  actually an HTML error page). Full diagram:
+  [`hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg`](hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg).
 - **Same durability caveat as PyMuPDF (§9):** these packages live in the
   container's own root filesystem, not a bind-mounted path — survive
   Hermes process restarts, wiped if the container is ever
@@ -264,16 +281,16 @@ covers what changed since.
 
 Present: `curl`, `wget`, `python3` + `pip3`, `node` + `npm`, `git`, `dot`
 (Graphviz — the image tag is literally `hermes-sandbox:graphviz`),
-`lspci`, `lshw`, `lnav`, `dmidecode` (installed but non-functional, §6).
-Absent: `docker` (see §5), `nvidia-smi` (see §4, config exists but not
-live yet), `jq`, `hwinfo`.
+`lspci`, `lshw`, `lnav`, `pdftotext`/`pdfinfo`, `dmidecode` (installed
+but non-functional, §6). Absent: `docker` (see §5), `nvidia-smi` (see
+§4, config exists but not live yet), `jq`, `hwinfo`.
 
-**PDF processing:** only `pypdf` (pure-Python) ships in the image.
+**PDF processing:** `pypdf` (pure-Python) ships in the image by default.
 `fitz`/PyMuPDF, `PyPDF2`, `pdfplumber`, `pdfminer` are all absent, and
-there's no CLI PDF tooling at all — no `pdftotext`, no `poppler-utils`,
-no `ghostscript`, no `mupdf`, no `qpdf`. No root/`sudo` inside the
-container for the *normal* runtime shell, so `apt`/`apt-get` can't
-install anything from inside a Hermes tool call itself (present as
+there was originally no CLI PDF tooling either — no `pdftotext`, no
+`poppler-utils`, no `ghostscript`, no `mupdf`, no `qpdf`. No root/`sudo`
+inside the container for the *normal* runtime shell, so `apt`/`apt-get`
+can't install anything from inside a Hermes tool call itself (present as
 binaries, but can't write to system dirs as uid 1000 — see §6 for the
 host-side `docker exec -u root` workaround that *does* work). `pip3
 install --user <pkg>` does work from inside the sandbox though (PyPI
@@ -287,6 +304,14 @@ ever removed/recreated. If PyMuPDF stops importing after a container
 recreation (e.g. once the GPU-passthrough fix in §4 happens), just
 re-run the `pip3 install --user pymupdf` command. Full sequence: diagram
 [04](diagrams/04_pdf_tooling_gap_and_fix.svg).
+
+`poppler-utils` (`pdftotext`/`pdfinfo`) was installed later, as §6
+describes, specifically because inline PyMuPDF code kept failing for a
+different reason — not a missing library, but the model's own generated
+Python breaking on multi-line extraction+writing logic. A single shell
+command per PDF sidesteps that failure mode entirely. See §6 and
+[`hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg`](hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg)
+for the full incident and fix.
 
 ## 10. Guardrails layered on top of the sandbox
 

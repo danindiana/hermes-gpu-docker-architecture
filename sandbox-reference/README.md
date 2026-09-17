@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-11%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-12%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="format" src="https://img.shields.io/badge/format-tool--spec%20style-8b5cf6">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
@@ -137,7 +137,7 @@ into a working sysfs-based fix, a general technique for installing
 packages into a `--cap-drop ALL` container, a genuine `CAP_SYS_RAWIO`
 capability wall around `dmidecode` that stays closed on purpose, and a
 log-viewer install that was deliberately *not* paired with host log
-access. 4 more diagrams.
+access, and a batch-PDF-summarization failure fixed by splitting extraction from insight-writing. 5 diagrams.
 
 ## Related
 
