@@ -35,6 +35,10 @@ built and configured today**, plus everything learned since (GPU passthrough int
 sandbox, KV-cache quantization, multi-GPU topology, the derived-Modelfile-tag pattern, and a
 three-layer context-window footgun that's easy to fall into with any local-Ollama agent setup).
 
+**New to this repo?** [`SESSION_SUMMARY.md`](SESSION_SUMMARY.md) is the narrative version —
+one continuous working session told start to finish, tying every subfolder below together in the
+order it actually happened, for anyone who wants the whole arc before diving into one piece of it.
+
 ## Hardware
 
 | Component | Spec |
