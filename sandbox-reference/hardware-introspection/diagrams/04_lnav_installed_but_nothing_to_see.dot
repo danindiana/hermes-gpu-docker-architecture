@@ -1,0 +1,45 @@
+digraph LnavInstalledButNothingToSee {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"Can you access the system's log files?\" — installed the viewer, declined the host logs";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Operator asks Hermes:\n\"Can you access lnav /\nsystem log files?\""];
+
+  correct [fillcolor="#0f2a20", color="#39ffb0",
+           label="Hermes's own answer was\nCORRECT this time:\n\"container shows only\ncontainer-level events,\nnot host status\""];
+  ask -> correct;
+
+  installed [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+             label="lnav installed\n(same apt-get -o\nAPT::Sandbox::User=root\ntechnique as diagram 02)"];
+  correct -> installed [label="fixed the missing\nviewer, same as\nlspci/lshw"];
+
+  sparse [fillcolor="#152a3a", color="#39d0ff",
+          label="Container's own /var/log:\ndpkg.log, apt/ history,\nalternatives.log — real,\nbut sparse (no init system,\nno services running here)"];
+  installed -> sparse;
+
+  subgraph cluster_hostlogs {
+    label="Real host logs that exist, NOT mounted in"; fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1c1430";
+    syslog [fillcolor="#1c1430", color="#8b5cf6",
+            label="/var/log/syslog\ngroup \"adm\" readable\nREAL HOSTNAME in every line\nfull systemd/service history"];
+    journal [fillcolor="#1c1430", color="#8b5cf6",
+             label="systemd journal\n(journalctl -u ollama etc.)\nroot:systemd-journal only"];
+  }
+  sparse -> syslog [style=dashed, color="#8b5cf6", label="exists on host,\nnot in sandbox"];
+  sparse -> journal [style=dashed, color="#8b5cf6"];
+
+  decision [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+            label="Operator's choice: DECLINED.\nA different exposure tier from\nread-only PCI/hardware facts —\nreal hostname + full host\nactivity history, not taken as\na side effect of \"add a log viewer\""];
+  syslog -> decision;
+  journal -> decision;
+
+  outcome [shape=plaintext, fontcolor="#8b5cf6",
+           label="Net result: lnav is a real, usable capability now for anything Hermes\nwrites into /workspace or the container's own logs going forward —\njust not a window into the rest of the host."];
+  decision -> outcome [style=invis];
+}

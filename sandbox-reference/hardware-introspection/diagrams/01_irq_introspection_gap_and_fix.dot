@@ -1,0 +1,45 @@
+digraph IrqIntrospectionGapAndFix {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"What does the IRQ assignment look like?\" — the wrong conclusion, and the real one";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Operator asks Hermes:\n\"What does the IRQ assignment\nlook like on this machine?\""];
+
+  t1 [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada", label="lspci -vv\nnot installed"];
+  t2 [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada", label="dmidecode\nnot installed"];
+  t3 [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+      label="cat /proc/interrupts\nreadable, but EMPTY"];
+  ask -> t1 -> t2 -> t3;
+
+  wrong [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+         label="Hermes's conclusion:\n\"hidden by the Docker VM\nabstraction\" — WRONG.\nThis is a container sharing\nthe host kernel, not a VM."];
+  t3 -> wrong;
+
+  subgraph cluster_real {
+    label="What's actually going on"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    r1 [fillcolor="#152a3a", color="#39d0ff",
+        label="/proc/interrupts is masked:\nbind-mounted /dev/null (major:minor 1,3)\nDocker's DEFAULT runc info-disclosure\nhardening — not sandbox-specific config"];
+    r2 [fillcolor="#152a3a", color="#39d0ff",
+        label="lspci/dmidecode/lshw simply\nabsent from the image\n(separate issue: no sudo/apt-writable\nsystem dirs to add them)"];
+    r3 [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="/sys/bus/pci/devices/*/irq\n/sys/kernel/irq/<n>/actions\n/proc/irq/<n>/smp_affinity_list\nALL fully readable, unmasked"];
+  }
+  wrong -> r1 [style=dashed, color="#8b5cf6"];
+  wrong -> r2 [style=dashed, color="#8b5cf6"];
+  wrong -> r3 [style=dashed, color="#8b5cf6", label="the actual answer\nwas one dir away"];
+
+  fix [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+       label="scripts/irq_report.py\nstdlib-only Python, no subprocess\nwalks sysfs -> PCI addr | IRQ |\ndriver name | CPU affinity table"];
+  r3 -> fix;
+
+  verified [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+            label="Verified live on a real AMD Ryzen 9\n7950X3D + dual-GPU + dual-NVMe box:\n25 PCI devices with an assigned IRQ,\ncorrect driver names (nvidia, ahci[...],\nAMD-Vi, PCIe PME), real per-IRQ\nCPU affinity lists."];
+  fix -> verified [style=invis];
+}

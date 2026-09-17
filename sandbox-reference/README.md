@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-5%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-9%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="format" src="https://img.shields.io/badge/format-tool--spec%20style-8b5cf6">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
@@ -106,6 +106,19 @@ the rest of this repo).
   as checkpointing the whole sandbox.** If an agent's default working
   directory can ever drift from that directory, your safety net doesn't
   follow it.
+
+## Follow-up round: hardware introspection (lspci/dmidecode/lshw/lnav)
+
+A second real round of findings, from actually using the sandbox for
+diagnostic questions ("what's the IRQ assignment", "can you access
+system logs"), lives in its own subfolder:
+[`hardware-introspection/`](hardware-introspection/) — a real diagnosis
+failure (wrong conclusion: "hidden by the Docker VM abstraction") turned
+into a working sysfs-based fix, a general technique for installing
+packages into a `--cap-drop ALL` container, a genuine `CAP_SYS_RAWIO`
+capability wall around `dmidecode` that stays closed on purpose, and a
+log-viewer install that was deliberately *not* paired with host log
+access. 4 more diagrams.
 
 ## Related
 

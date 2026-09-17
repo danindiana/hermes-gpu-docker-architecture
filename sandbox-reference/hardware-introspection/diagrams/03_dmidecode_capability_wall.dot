@@ -1,0 +1,42 @@
+digraph DmidecodeCapabilityWall {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="lspci and lshw work; dmidecode hits a real capability wall, even as root";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  installed [fillcolor="#241a0d", color="#ff9f4d",
+             label="pciutils, lshw, dmidecode\nall installed successfully\n(diagram 02)"];
+
+  lspci [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+         label="lspci / lspci -vv\nWORKS at uid 1000\nreal vendor names +\n\"Interrupt: pin A routed to IRQ 26\""];
+  lshw [fillcolor="#0f2a20", color="#39ffb0",
+        label="lshw -short\nWORKS (mostly) at uid 1000\nfull PCI device tree, real names\n(\"AD103 [GeForce RTX 4080 SUPER]\")\nmissing only DMI-derived fields"];
+  dmi [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+       label="dmidecode\nFAILS even as root (docker exec -u root):\n\"Can't read memory from /dev/mem\""];
+
+  installed -> lspci;
+  installed -> lshw;
+  installed -> dmi;
+
+  why [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+       label="dmidecode needs CAP_SYS_RAWIO\nto read raw physical memory\nfor SMBIOS/DMI tables.\n--cap-drop ALL strips it\nregardless of uid — a real\nsecurity boundary, not a bug."];
+  dmi -> why;
+
+  why2 [shape=plaintext, fontcolor="#8b5cf6",
+        label="Contrast: lspci/lshw only need to read /sys/bus/pci (normal\nfile permissions, no special capability) — that's why they work\nfine at uid 1000 while dmidecode fails even as root."];
+  lspci -> why2 [style=invis];
+  lshw -> why2 [style=invis];
+
+  option [fillcolor="#241a0d", color="#ff9f4d",
+          label="Real fix would need:\n--cap-add SYS_RAWIO\n+ likely /dev/mem device access\nin terminal.docker_extra_args"];
+  why -> option [style=dashed];
+
+  notdone [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="NOT done here.\nSame tier as GPU passthrough\nor bigger — raw physical memory\nread access needs explicit\noperator sign-off, not a\nside effect of \"install some tools\""];
+  option -> notdone;
+}

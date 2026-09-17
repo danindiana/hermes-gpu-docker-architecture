@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-24%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-28%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -222,6 +222,15 @@ that doesn't survive a container recreation.
 - [`sandbox-reference/README.md`](sandbox-reference/README.md) — narrative tour + 5 diagrams
 - [`sandbox-reference/REFERENCE.md`](sandbox-reference/REFERENCE.md) — the full tool-spec-style reference doc
 - [`sandbox-reference/diagrams/`](sandbox-reference/diagrams/) — 5 more diagrams: filesystem mount truth table, container-reuse-ignores-config mechanism, sandbox-at-a-glance cheat sheet, a real PDF-tooling gap and fix, and guardrail coverage
+
+A third subfolder, [`sandbox-reference/hardware-introspection/`](sandbox-reference/hardware-introspection/),
+covers a follow-up round of real diagnostic questions: a wrong
+self-diagnosis ("IRQ info is hidden by the Docker VM abstraction" — it
+isn't, most of it is readable straight from sysfs), a general technique
+for installing packages into a `--cap-drop ALL` container (`apt-get -o
+APT::Sandbox::User=root`), a genuine `CAP_SYS_RAWIO` capability wall
+around `dmidecode` left closed on purpose, and a log-viewer install
+(`lnav`) deliberately not paired with host log access. 4 more diagrams.
 
 ## License
 

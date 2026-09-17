@@ -30,7 +30,7 @@ narrative context this subfolder builds on.
 - Image: `hermes-sandbox:graphviz`.
 - One persistent container per active Hermes **profile** (this one is
   profile `default`), reused across Hermes process restarts — not
-  recreated per session. See §6, and diagram
+  recreated per session. See §7, and diagram
   [02](diagrams/02_container_reuse_ignores_config.svg).
 - Runs as a real Docker container on the host (`docker_image` under
   `terminal:` in `~/.hermes/config.yaml`), started with
@@ -53,7 +53,7 @@ full picture.
   bind-mounted to the host at all (confirmed via `docker inspect`'s mount
   list — it's absent). It persists only as long as this specific
   container keeps running; it is wiped the moment the container is ever
-  removed/recreated (§6/§4). **Anything installed here — e.g. a `pip
+  removed/recreated (§7/§4). **Anything installed here — e.g. a `pip
   install --user` python package — does not survive a container
   recreation and is not checkpointed.** Prefer `/workspace` for anything
   that matters, including packages you want to survive a GPU-passthrough
@@ -66,6 +66,12 @@ full picture.
 - **The real host `$HOME`** (the operator's actual home directory) is
   **not mounted** at all. An attempt to reach it fails with Permission
   denied — confirmed live.
+- **`/workspace` can only ever be whatever `docker_volumes` currently
+  points at.** If files you expect aren't there, check
+  `~/.hermes/config.yaml`'s `terminal.docker_volumes` before assuming
+  anything was lost — content can end up outside this mount entirely if
+  it was written by something other than a Hermes tool call (e.g. a
+  human moving files around in a file manager on the host).
 
 ## 3. Network access
 
@@ -79,7 +85,7 @@ full picture.
   PDF (`arxiv.org/pdf/...`) downloads cleanly into `/workspace`.
 - To go air-gapped instead, set `terminal.docker_network: false` — this
   swaps in `--network=none` for every future container (again, only
-  takes effect on a **new** container — see §6).
+  takes effect on a **new** container — see §7).
 
 ## 4. GPU passthrough — configured, but currently NOT live
 
@@ -127,7 +133,78 @@ Full mechanism diagram: [02](diagrams/02_container_reuse_ignores_config.svg).
   real host shell (or a non-sandboxed agent), not for Hermes's own shell
   tool calls.
 
-## 6. Persistence & container lifecycle
+## 6. Hardware introspection (PCI/IRQ) — lspci/dmidecode are gone, sysfs isn't
+
+Full standalone writeup and 4 diagrams:
+[`hardware-introspection/`](hardware-introspection/).
+
+A real failure mode, hit live: asked "what does the IRQ assignment look
+like on this machine," Hermes tried `lspci -vv`, `dmidecode`, and
+`/proc/interrupts` in sequence — all three dead ends — and concluded IRQ
+info was "hidden by the Docker VM abstraction." **That conclusion was
+wrong.** This isn't a VM; it's a normal Linux container sharing the host
+kernel, and most of the same information is directly readable elsewhere:
+
+- `/proc/interrupts` — readable (`cat` exits 0) but **empty**. `ls -la`
+  shows it as a character device `1,3` — Docker's default `runc` masked-
+  paths list bind-mounts `/dev/null` over a handful of sensitive `/proc`
+  entries for every container (this one included, no special config
+  needed to trigger it) as an information-disclosure hardening measure.
+  There is no scoped way to unmask just this one file without either
+  disabling all masking (`--security-opt systempaths=unconfined` — this
+  also exposes `/proc/kcore`, `/proc/keys`, and more; not worth it for
+  this) or an explicit bind mount of that one host path.
+- **`/sys/bus/pci/devices/*/`** — fully readable, not masked, not
+  namespaced. Every PCI device on the host shows up here with real
+  `vendor`, `device`, `class`, `numa_node`, and **`irq`** files.
+- **`/sys/kernel/irq/<n>/actions`** and **`/proc/irq/<n>/smp_affinity_list`**
+  — both fully readable per-IRQ, giving the device/driver name that owns
+  each interrupt and which CPUs it's allowed to run on.
+
+**Fix (part 1):** [`hardware-introspection/scripts/irq_report.py`](hardware-introspection/scripts/irq_report.py)
+— a small, dependency-free Python script (stdlib only, no `subprocess`)
+that walks `/sys/bus/pci/devices`, cross-references each device's `irq`
+number against `/sys/kernel/irq/*/actions` and
+`/proc/irq/*/smp_affinity_list`, and prints a full PCI-address → IRQ →
+owning driver → CPU-affinity table. Confirmed live: 25 real PCI devices
+with an assigned interrupt line, correct driver names (`nvidia`,
+`ahci[...]`, `AMD-Vi`, `PCIe PME`), real CPU-affinity lists.
+
+**Fix (part 2): `lspci`, `dmidecode`, `lshw`, `lnav` actually installed.**
+Plain `apt-get install` fails under `--cap-drop ALL` even as root — apt's
+download step tries to drop privileges to its internal `_apt` user, which
+needs `CAP_SETUID`/`CAP_SETGID`, both stripped. Worked around from the
+**host** (Hermes's own sandboxed shell can't do this — its terminal tool
+always runs as uid 1000, no route to root) via:
+```
+docker exec -u root hermes-<hash> sh -c \
+  'apt-get -o APT::Sandbox::User=root update && \
+   apt-get -o APT::Sandbox::User=root install -y <packages>'
+```
+- **`lspci` / `lspci -vv`** — fully working at the normal runtime uid.
+  Real vendor names, and the original ask
+  (`Interrupt: pin A routed to IRQ 26`-style lines) works directly now.
+- **`lshw -short`** — mostly working (full PCI device tree, real device
+  names), missing only DMI-derived fields.
+- **`dmidecode`** — installed but **non-functional even as root**:
+  `Can't read memory from /dev/mem`. Needs `CAP_SYS_RAWIO`, stripped by
+  `--cap-drop ALL` regardless of uid — a real capability boundary, not a
+  bug. Fixing it for real (`--cap-add SYS_RAWIO` + `/dev/mem` access)
+  would be a privilege grant on the same tier as GPU passthrough or
+  bigger — not done here without explicit sign-off.
+- **`lnav`** — installed for a follow-up "can you access system logs"
+  question. Little to actually browse: the container's own `/var/log`
+  is sparse (no init system, no services running inside it). Real host
+  logs (`/var/log/syslog` — real hostname in every line, full
+  systemd/service history; the journal) exist but were **declined** —
+  a bigger exposure tier than read-only PCI/hardware facts, not granted
+  as a side effect of "add a log viewer."
+- **Same durability caveat as PyMuPDF (§9):** these packages live in the
+  container's own root filesystem, not a bind-mounted path — survive
+  Hermes process restarts, wiped if the container is ever
+  removed/recreated (§4/§7).
+
+## 7. Persistence & container lifecycle
 
 - `container_persistent: true` → the container's filesystem survives
   across Hermes sessions; it is **not** torn down when a session or the
@@ -143,7 +220,7 @@ Full mechanism diagram: [02](diagrams/02_container_reuse_ignores_config.svg).
   terminal env before reaping it — the underlying container keeps
   running either way.
 
-## 7. Resource limits
+## 8. Resource limits
 
 - `container_cpu` / `container_memory` — enforced via cgroups (`--cpus`,
   `--memory`) if the kernel/cgroup config supports it.
@@ -157,34 +234,39 @@ Full mechanism diagram: [02](diagrams/02_container_reuse_ignores_config.svg).
 - `terminal.timeout` — max seconds a single shell command inside the
   sandbox is allowed to run before Hermes kills it.
 
-## 8. Tools available inside (confirmed live)
+## 9. Tools available inside (confirmed live)
 
-See diagram [03](diagrams/03_sandbox_at_a_glance.svg) for the full
-present/absent cheat sheet.
+See diagram [03](diagrams/03_sandbox_at_a_glance.svg) for the present/
+absent cheat sheet as of the first sandbox-reference batch; §6 above
+covers what changed since.
 
 Present: `curl`, `wget`, `python3` + `pip3`, `node` + `npm`, `git`, `dot`
-(Graphviz — the image tag is literally `hermes-sandbox:graphviz`).
+(Graphviz — the image tag is literally `hermes-sandbox:graphviz`),
+`lspci`, `lshw`, `lnav`, `dmidecode` (installed but non-functional, §6).
 Absent: `docker` (see §5), `nvidia-smi` (see §4, config exists but not
-live yet), `jq`.
+live yet), `jq`, `hwinfo`.
 
 **PDF processing:** only `pypdf` (pure-Python) ships in the image.
 `fitz`/PyMuPDF, `PyPDF2`, `pdfplumber`, `pdfminer` are all absent, and
 there's no CLI PDF tooling at all — no `pdftotext`, no `poppler-utils`,
 no `ghostscript`, no `mupdf`, no `qpdf`. No root/`sudo` inside the
-container, so `apt`/`apt-get` can't install anything (present as
-binaries, but can't write to system dirs as uid 1000). `pip3 install
---user <pkg>` does work (PyPI reachable) — PyMuPDF was installed this way
-(`pip3 install --user pymupdf`, confirmed `import fitz` works, though it
-now warns to use `import pymupdf` instead — same package, newer preferred
-import name). **Caveat:** this landed in `/home/pn/.local`, the
-container's own non-persisted writable layer (see §2) — it survives
-Hermes process restarts (same container keeps running) but is lost if
-the container is ever removed/recreated. If PyMuPDF stops importing
-after a container recreation (e.g. once the GPU-passthrough fix in §4
-happens), just re-run the `pip3 install --user pymupdf` command. Full
-sequence: diagram [04](diagrams/04_pdf_tooling_gap_and_fix.svg).
+container for the *normal* runtime shell, so `apt`/`apt-get` can't
+install anything from inside a Hermes tool call itself (present as
+binaries, but can't write to system dirs as uid 1000 — see §6 for the
+host-side `docker exec -u root` workaround that *does* work). `pip3
+install --user <pkg>` does work from inside the sandbox though (PyPI
+reachable) — PyMuPDF was installed this way (`pip3 install --user
+pymupdf`, confirmed `import fitz` works, though it now warns to use
+`import pymupdf` instead — same package, newer preferred import name).
+**Caveat:** this landed in `/home/pn/.local`, the container's own
+non-persisted writable layer (see §2) — it survives Hermes process
+restarts (same container keeps running) but is lost if the container is
+ever removed/recreated. If PyMuPDF stops importing after a container
+recreation (e.g. once the GPU-passthrough fix in §4 happens), just
+re-run the `pip3 install --user pymupdf` command. Full sequence: diagram
+[04](diagrams/04_pdf_tooling_gap_and_fix.svg).
 
-## 9. Guardrails layered on top of the sandbox
+## 10. Guardrails layered on top of the sandbox
 
 See diagram [05](diagrams/05_guardrail_coverage.svg).
 
@@ -200,6 +282,8 @@ See diagram [05](diagrams/05_guardrail_coverage.svg).
 
 **If something here looks wrong:** config changes to `terminal:` in
 `~/.hermes/config.yaml` won't show up in the running container's actual
-behavior until it's removed and recreated (§6) — check `docker inspect
+behavior until it's removed and recreated (§7) — check `docker inspect
 <container>` against the current config before assuming a setting isn't
-working.
+working. And if a file you expect in `/workspace` isn't there, check
+`docker_volumes` (§2) before assuming it was lost — it may simply be
+living somewhere this mount doesn't reach.

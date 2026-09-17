@@ -1,0 +1,41 @@
+digraph AptInstallUnderCapDropAll {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Installing packages into a --cap-drop ALL sandbox";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  goal [fillcolor="#241a0d", color="#ff9f4d", label="Goal: install pciutils,\ndmidecode, lshw"];
+
+  plainuser [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+             label="apt-get install (as uid 1000)\nPermission denied — no write\naccess to /var/lib/dpkg"];
+  goal -> plainuser [label="obvious first try"];
+
+  plainroot [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+             label="docker exec -u root ...\napt-get install\nsetgroups/setegid/seteuid:\nOperation not permitted"];
+  goal -> plainroot [label="try as root via\ndocker exec -u root"];
+
+  why [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+       label="apt's OWN internal hardening:\ndrops privileges to its _apt\nsandbox user for the download step\n→ needs CAP_SETUID/CAP_SETGID\n→ stripped by --cap-drop ALL,\nregardless of exec uid"];
+  plainroot -> why;
+
+  fix [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+       label="docker exec -u root <container> sh -c \\\n  'apt-get -o APT::Sandbox::User=root update &&\\\n   apt-get -o APT::Sandbox::User=root install -y \\\n   pciutils dmidecode lshw'"];
+  why -> fix [label="disables apt's internal\nprivilege drop for this\none-off install"];
+
+  works [fillcolor="#0f2a20", color="#39ffb0",
+         label="lspci / lshw confirmed working\nback at the normal runtime uid (1000)"];
+  fix -> works;
+
+  caveat [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="Lands in the container's OWN\nroot filesystem (/usr, /var/lib/dpkg)\nnot a bind-mounted path —\nsame durability gap as pip installs\ninto /home/pn (see diagram 04\nin the parent sandbox-reference/)"];
+  works -> caveat;
+
+  hermes_cant [shape=plaintext, fontcolor="#8b5cf6",
+               label="Note: Hermes's OWN sandboxed shell tool cannot do this itself —\nits terminal always runs at uid 1000 with no route to root.\nThis fix requires host-side `docker exec -u root` access."];
+  caveat -> hermes_cant [style=invis];
+}
