@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-9%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-11%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="format" src="https://img.shields.io/badge/format-tool--spec%20style-8b5cf6">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
@@ -53,7 +53,7 @@ config-driven `docker run` flags and a persistent sandbox filesystem.
 
 ## The diagrams
 
-All 5 diagrams live in [`diagrams/`](diagrams/) as Graphviz `.dot`
+All 7 diagrams live in [`diagrams/`](diagrams/) as Graphviz `.dot`
 sources, each rendered to both `.svg` and `.png` (same dark-neon style as
 the rest of this repo).
 
@@ -85,6 +85,21 @@ the rest of this repo).
    (production-tested against a real destructive command) versus a real,
    confirmed gap: the container's own `$HOME` isn't checkpointed, only
    `/workspace` is.
+6. **[Capabilities added back](diagrams/06_capabilities_added_back.svg)**
+   — `--cap-drop ALL` isn't the whole story: `docker inspect` shows
+   `CapAdd=[CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER]`, three capabilities
+   added back on top of the drop-all baseline. These are why the
+   `hardware-introspection/` apt-install technique actually worked
+   cleanly, not just "ran as root" — and `CAP_SYS_RAWIO`'s conspicuous
+   absence from this list is the real reason `dmidecode` still fails even
+   as root.
+7. **[tmpfs scratch mounts](diagrams/07_tmpfs_scratch_mounts.svg)** — a
+   third filesystem category diagram 1 didn't cover: `/tmp` (512 MB),
+   `/var/tmp` (256 MB), and `/run` (64 MB) are RAM-backed tmpfs, not bind
+   mounts. Confirmed actively used (Hermes's own `execute_code` tool
+   writes its Python kernel runner here) and wiped on **any** container
+   stop/restart — a tighter durability bar than `/home/pn` or an
+   apt/pip-installed package.
 
 ## Key takeaways
 
@@ -102,6 +117,10 @@ the rest of this repo).
   available** — `pip install --user` (or your language's equivalent
   user-scope package manager) is usually still open, worth checking
   before concluding a sandbox is fully locked down for that purpose.
+- **"`--cap-drop ALL`" is a starting point people quote, not the full
+  configuration.** Check the actual `CapAdd` list before reasoning about
+  what a hardened container can or can't do — a small, deliberate set of
+  capabilities added back can matter more than the drop-all headline.
 - **Checkpointing scoped to one directory (`/workspace`) is not the same
   as checkpointing the whole sandbox.** If an agent's default working
   directory can ever drift from that directory, your safety net doesn't

@@ -1,0 +1,39 @@
+digraph TmpfsScratchMounts {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="A third filesystem category the mount truth table (diagram 01) missed: RAM-backed scratch";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_bind {
+    label="Bind mounts (diagram 01 — backed by real host paths)"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    ws [fillcolor="#0f2a20", color="#39ffb0", label="/workspace\nhost dir, persists,\ncheckpointed"];
+    root [fillcolor="#152a3a", color="#39d0ff", label="/root\nhost dir, persists,\nNOT checkpointed"];
+  }
+
+  subgraph cluster_tmpfs {
+    label="tmpfs mounts (RAM-backed, confirmed via `docker inspect`)"; fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    tmp [fillcolor="#241a0d", color="#ff9f4d", label="/tmp\n512 MB, nosuid\n(exec allowed)"];
+    vartmp [fillcolor="#241a0d", color="#ff9f4d", label="/var/tmp\n256 MB, noexec,nosuid"];
+    run [fillcolor="#241a0d", color="#ff9f4d", label="/run\n64 MB, noexec,nosuid"];
+  }
+
+  used [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="Confirmed actively used:\nHermes's own execute_code tool\nwrites its Python kernel runner to\n/tmp/hermes_rkernel_<id>/kernel_runner.py\n(seen live in this session's own\ntool-error traces)"];
+  tmp -> used;
+
+  gone [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="Wiped on ANY container stop/restart\n— not just recreation like /home/pn.\ntmpfs content never survives even\na graceful `docker stop` + `docker start`\nof the SAME container.\nNever checkpointed either."];
+  tmp -> gone;
+  vartmp -> gone;
+  run -> gone;
+
+  rule [shape=plaintext, fontcolor="#8b5cf6",
+        label="Rule of thumb: /workspace for anything that matters, /tmp or /var/tmp only\nfor genuine scratch you're fine losing on the next container restart —\na tighter bar than the \"survives restarts, lost on recreation\" tier\nthat /home/pn and pip/apt installs fall into (see diagrams 01 and 04)."];
+  gone -> rule [style=invis];
+  ws -> gone [style=invis];
+}

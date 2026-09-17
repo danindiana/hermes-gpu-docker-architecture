@@ -36,6 +36,18 @@ narrative context this subfolder builds on.
   `terminal:` in `~/.hermes/config.yaml`), started with
   `--cap-drop ALL --user 1000:1000 --security-opt no-new-privileges`
   (confirmed via `docker inspect`) — non-root, no capability escalation.
+- **`--cap-drop ALL` isn't the whole capability story.** `docker inspect`
+  also shows `CapAdd=[CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER]` — three
+  specific capabilities added back on top of the drop-all baseline.
+  These are why `dpkg` (via the `apt-get -o APT::Sandbox::User=root`
+  technique in [`hardware-introspection/`](hardware-introspection/))
+  could actually unpack packages and set file ownership cleanly, not
+  just "run as root." `CAP_SYS_RAWIO` is conspicuously **not** in this
+  list — the real reason `dmidecode` still fails even as root (see
+  [`hardware-introspection/diagrams/03_dmidecode_capability_wall.svg`](hardware-introspection/diagrams/03_dmidecode_capability_wall.svg)).
+  Full diagram: [06](diagrams/06_capabilities_added_back.svg). Never
+  assume "`--cap-drop ALL`" means zero capabilities — check the actual
+  `CapAdd` list.
 
 ## 2. Filesystem: what's mounted, what's not
 
@@ -72,6 +84,16 @@ full picture.
   anything was lost — content can end up outside this mount entirely if
   it was written by something other than a Hermes tool call (e.g. a
   human moving files around in a file manager on the host).
+- **A third category: RAM-backed tmpfs scratch.** `/tmp` (512 MB,
+  `nosuid`), `/var/tmp` (256 MB, `noexec,nosuid`), and `/run` (64 MB,
+  `noexec,nosuid`) are tmpfs mounts — not bind mounts, not part of the
+  container's persistent writable layer either. Confirmed actively used:
+  Hermes's own `execute_code` tool writes its Python kernel runner
+  scripts to `/tmp/hermes_rkernel_<id>/kernel_runner.py`. These are wiped
+  on **any** container stop/restart, not just recreation — a tighter
+  durability bar than `/home/pn` (§ above) or the container's root
+  filesystem (§9's pip/apt installs). Never checkpointed. Full diagram:
+  [07](diagrams/07_tmpfs_scratch_mounts.svg).
 
 ## 3. Network access
 

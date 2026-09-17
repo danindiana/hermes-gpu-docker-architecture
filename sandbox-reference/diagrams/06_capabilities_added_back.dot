@@ -1,0 +1,41 @@
+digraph CapabilitiesAddedBack {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"--cap-drop ALL\" isn't the whole story: 3 capabilities added back";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  baseline [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+            label="--cap-drop ALL\nthe baseline every other\ndiagram in this repo cites"];
+
+  subgraph cluster_addback {
+    label="--cap-add (confirmed via `docker inspect`)"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    chown [fillcolor="#152a3a", color="#39d0ff",
+           label="CAP_CHOWN\nchange file owner/group\n(dpkg needs this to lay\ndown package-owned files)"];
+    dacover [fillcolor="#152a3a", color="#39d0ff",
+             label="CAP_DAC_OVERRIDE\nbypass normal file\nread/write/execute\npermission checks"];
+    fowner [fillcolor="#152a3a", color="#39d0ff",
+            label="CAP_FOWNER\nbypass owner-matching\nchecks for chmod/utime/\nother file ops"];
+  }
+  baseline -> chown;
+  baseline -> dacover;
+  baseline -> fowner;
+
+  why [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+       label="Together, these three are WHY\n`docker exec -u root ... apt-get`\nactually worked cleanly —\nnot just \"ran as root,\"\nbut root WITH the specific\nfile-ownership capabilities\ndpkg's unpack step needs"];
+  chown -> why;
+  dacover -> why;
+  fowner -> why;
+
+  contrast [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+            label="CAP_SYS_RAWIO: NOT in this list.\nThis is the actual reason\ndmidecode still fails even as\nroot (see diagram 03 in\nhardware-introspection/) —\nnot every capability comes back,\nonly these three, deliberately."];
+  why -> contrast [style=dashed, color="#ff4d4d"];
+
+  takeaway [shape=plaintext, fontcolor="#8b5cf6",
+            label="Lesson: never assume \"--cap-drop ALL\" means zero capabilities.\nAlways check the actual CapAdd list (`docker inspect ... .HostConfig.CapAdd`)\nbefore reasoning about what a hardened container can or can't do."];
+  contrast -> takeaway [style=invis];
+}
