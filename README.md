@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-32%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-33%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -230,7 +230,7 @@ isn't, most of it is readable straight from sysfs), a general technique
 for installing packages into a `--cap-drop ALL` container (`apt-get -o
 APT::Sandbox::User=root`), a genuine `CAP_SYS_RAWIO` capability wall
 around `dmidecode` left closed on purpose, and a log-viewer install
-(`lnav`) deliberately not paired with host log access, and a batch-PDF-summarization failure fixed by splitting extraction from insight-writing, and a /tmp noexec correction found while adding Go/Rust/Nim toolchains. 6 diagrams.
+(`lnav`) deliberately not paired with host log access, and a batch-PDF-summarization failure fixed by splitting extraction from insight-writing, and a /tmp noexec correction found while adding Go/Rust/Nim toolchains, and finding most requested Nim modules were already stdlib. 7 diagrams.
 
 ## License
 

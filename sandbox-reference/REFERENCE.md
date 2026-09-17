@@ -264,6 +264,19 @@ docker exec -u root hermes-<hash> sh -c \
   location. Fixed by building/running everything under `/workspace`
   instead (or redirecting `TMPDIR` there for `go run`). Full diagram:
   [`hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg`](hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg).
+- **Nim modules requested: `asyncdispatch`, `asyncnet`, `illwill`,
+  `memfiles`.** Three of the four needed zero action — `asyncdispatch`,
+  `asyncnet`, and `memfiles` are Nim standard library, shipping with the
+  compiler itself. Confirmed with real functional tests, not just
+  imports: a real async TCP echo round-trip over loopback, and
+  `memfiles` really memory-mapping a file. Only `illwill` (a third-party
+  terminal-UI package) needed an actual install:
+  `nimble install illwill -y` (fetches Nimble's package index, `git
+  clone`s the package). Confirmed compiles/links correctly; its
+  raw-terminal-mode functions weren't exercised since a `docker exec`/
+  Hermes tool call has no real TTY. Lands in `/home/pn/.nimble/pkgs2/` —
+  same durability tier as `nim` itself. Full diagram:
+  [`hardware-introspection/diagrams/07_nim_modules_stdlib_vs_nimble.svg`](hardware-introspection/diagrams/07_nim_modules_stdlib_vs_nimble.svg).
 - **Same durability caveat as PyMuPDF (§9):** these packages live in the
   container's own root filesystem, not a bind-mounted path — survive
   Hermes process restarts, wiped if the container is ever

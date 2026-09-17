@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-6%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-7%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
   <img alt="capabilities" src="https://img.shields.io/badge/theme-Linux%20capabilities-8b5cf6">
@@ -111,6 +111,18 @@ subfolder expands into standalone diagrams and a self-contained script.
    regardless of source location, so it fails even with source under
    `/workspace` unless `TMPDIR` is redirected there too. Fix confirmed
    for all three: build/run under `/workspace` instead.
+7. **[Nim modules: stdlib vs. Nimble](diagrams/07_nim_modules_stdlib_vs_nimble.svg)**
+   — asked to install `asyncdispatch`, `asyncnet`, `illwill`, and
+   `memfiles`. Three of the four needed zero action: `asyncdispatch`,
+   `asyncnet`, and `memfiles` are Nim standard library, shipping with
+   the compiler itself — verified with real functional tests (a real
+   async TCP echo round-trip over loopback, `memfiles` really
+   memory-mapping a file), not just import checks. Only `illwill` (a
+   third-party terminal-UI package) needed a real install,
+   `nimble install illwill -y`, landing in `/home/pn/.nimble/pkgs2/` —
+   confirmed it compiles and links correctly, though its raw-terminal
+   functions weren't exercised (no real TTY in a `docker exec`/Hermes
+   tool call).
 
 ## Key takeaways
 
@@ -150,6 +162,11 @@ subfolder expands into standalone diagrams and a self-contained script.
   operation fails inexplicably, check the live system state directly
   (`mount`, not just `docker inspect`) rather than trusting the config
   you already read.
+- **"Install module X for language Y" often isn't a package-manager
+  question at all.** Three of four requested Nim modules were already
+  present as standard library — checking `import <module>` first (or
+  the language's own stdlib docs) is cheaper and more reliable than
+  reaching for the package manager by default.
 
 ## Related
 

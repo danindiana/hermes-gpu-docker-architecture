@@ -1,0 +1,46 @@
+digraph NimModulesStdlibVsNimble {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"Install asyncdispatch, asyncnet, illwill, memfiles\" — three were already there";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Requested: asyncdispatch,\nasyncnet, illwill, memfiles"];
+
+  subgraph cluster_stdlib {
+    label="Nim standard library — ships with the compiler, nothing to install";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    async [fillcolor="#0f2a20", color="#39ffb0",
+           label="asyncdispatch + asyncnet\nVerified: real async TCP echo\nround-trip over loopback\n(127.0.0.1:17654)"];
+    mem [fillcolor="#0f2a20", color="#39ffb0",
+         label="memfiles\nVerified: real mmap of a file,\ncorrect size reported"];
+  }
+  ask -> async;
+  ask -> mem;
+
+  subgraph cluster_nimble {
+    label="Third-party Nimble package — needed a real install";
+    fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    illwill [fillcolor="#241a0d", color="#ff9f4d",
+             label="illwill (terminal-UI library)\nnimble install illwill -y\n→ fetches Nimble's package index,\ngit clone's from GitHub"];
+  }
+  ask -> illwill;
+
+  verify [fillcolor="#152a3a", color="#39d0ff",
+          label="Confirmed: compiles and links\ncorrectly (illwillInit resolves).\nRaw-terminal-mode functions NOT\nexercised — no real TTY in a\ndocker exec / Hermes tool call"];
+  illwill -> verify;
+
+  caveat [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="Lands in /home/pn/.nimble/pkgs2/\n— same durability tier as nim itself\n(§ earlier): survives Hermes restarts,\nlost on container recreation.\nRe-run `nimble install illwill -y` then."];
+  verify -> caveat;
+
+  takeaway [shape=plaintext, fontcolor="#8b5cf6",
+            label="Takeaway: not every \"install X for language Y\" request needs a package\nmanager at all — check the standard library first. Three of the four\nrequested modules needed zero action."];
+  mem -> takeaway [style=invis];
+  caveat -> takeaway [style=invis];
+}
