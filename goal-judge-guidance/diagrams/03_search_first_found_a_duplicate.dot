@@ -1,0 +1,38 @@
+digraph SearchFirstFoundADuplicate {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Before opening a PR: CONTRIBUTING.md says search first. It paid off.";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ready [fillcolor="#241a0d", color="#ff9f4d",
+         label="Patch written, tested, ready\nto propose upstream"];
+
+  search [fillcolor="#152a3a", color="#39d0ff",
+          label="gh search prs --repo NousResearch/hermes-agent\n\"goal judge\" / \"continuation prompt\"\n(CONTRIBUTING.md: search open AND\nmerged PRs/issues before building)"];
+  ready -> search;
+
+  found [shape=octagon, fillcolor="#ff9f4d", color="#ff9f4d", fontcolor="#2a1a0d",
+         label="FOUND: PR #93521\n\"fix(goals): feed judge feedback\ninto continuation\" — OPEN,\nunmerged, filed 2026-08-24\nby another contributor.\nSame fix, independently found."];
+  search -> found;
+
+  review [fillcolor="#152a3a", color="#39d0ff",
+          label="Their PR already got a real review:\nlast_reason ALSO holds judge\nINFRASTRUCTURE error text on a\nparse/transport failure — would leak\nto the agent as fake \"feedback\".\nFlagged, unaddressed as of this writing."];
+  found -> review;
+
+  shared [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+          label="Our own local patch had the\nEXACT SAME gap — confirmed by\nreproducing it in our own first\n(broken-env) test run: a judge\nRuntimeError got fed back as\n\"guidance\" verbatim"];
+  review -> shared;
+
+  action [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+          label="Two decisions, both from CONTRIBUTING.md's\nown guidance:\n1. Do NOT open a competing duplicate PR\n2. DO fix the shared bug locally —\n   gate on consecutive_parse_failures /\n   consecutive_transport_failures == 0"];
+  shared -> action;
+
+  verify [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+          label="Verified: 5 unit cases (real reason / transport failure / parse\nfailure / placeholder / no reason) all behave correctly; full existing\nsuite (tests/hermes_cli/test_goals.py, 45 tests) still passes."];
+  action -> verify [style=invis];
+}

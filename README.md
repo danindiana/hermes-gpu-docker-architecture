@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-37%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-41%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -255,6 +255,28 @@ stuck live session revealed `CLI_CONFIG` is loaded once at process
 start and never re-read, so the pinning above wasn't actually live on
 an already-running session until restarted. Same shape as the
 `terminal.docker_extra_args` finding in `sandbox-reference/`. 4 diagrams.
+
+## Master-guides-slave supervision, and a real gap fixed in Hermes's own code
+
+A fifth subfolder, [`goal-judge-guidance/`](goal-judge-guidance/),
+answers a follow-up architecture question directly: is there a Hermes
+pattern where a frontier model *supervises* a running local-model
+session, rather than only being delegated isolated subtasks? Yes —
+`/goal` mode + `auxiliary.goal_judge` already is this, attached to the
+same session, judging every turn. Reading `hermes_cli/goals.py` found a
+real gap: the judge's diagnosis was computed every turn and then
+discarded before reaching the agent, using only a generic templated
+nudge instead. Fixed with a small patch, verified via a real Anthropic
+API round trip, existing test suite still green.
+
+Before proposing it upstream, a search turned up an **already-open,
+unmerged PR** (`NousResearch/hermes-agent#93521`) doing the same fix,
+independently — so no competing PR was opened, per the project's own
+`CONTRIBUTING.md`. That PR's own review had caught a real edge case
+(judge-infrastructure errors leaking into the agent as fake feedback)
+that this local patch's own first test run reproduced independently —
+closed locally by gating on the judge's failure counters. 4 diagrams,
+plus the real diff as a standalone patch file.
 
 ## License
 

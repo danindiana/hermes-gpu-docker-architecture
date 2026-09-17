@@ -1,0 +1,33 @@
+digraph TwoExistingSupervisionPatterns {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Hermes already has two different \"ask something smarter for help\" patterns";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  question [fillcolor="#241a0d", color="#ff9f4d",
+            label="\"What if the frontier model were the MASTER\nguiding the local agent, instead of an\noccasional delegated subagent?\""];
+
+  subgraph cluster_delegate {
+    label="delegate_task (see ../delegate-to-frontier/)"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    d1 [fillcolor="#152a3a", color="#39d0ff",
+        label="Model-INITIATED, on demand\nSpawns an ISOLATED subagent\n(own conversation, own tools)\nOnly the final summary returns"];
+  }
+  question -> d1;
+
+  subgraph cluster_goal {
+    label="/goal mode + auxiliary.goal_judge"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    g1 [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+        label="AUTOMATIC, every turn\nSAME session — no isolated context\nFrontier model (Claude Haiku)\njudges done/blocked/continue/wait"];
+  }
+  question -> g1;
+
+  answer [shape=plaintext, fontcolor="#8b5cf6",
+          label="Answer: /goal mode is architecturally the closer match to \"master guides slave\" —\nit's already attached to the running session, already automatic, already frontier-powered.\nThe gap (found by reading hermes_cli/goals.py directly) is what it does with its verdict."];
+  d1 -> answer [style=invis];
+  g1 -> answer [style=invis];
+}

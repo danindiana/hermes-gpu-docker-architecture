@@ -1,0 +1,42 @@
+digraph ScopeBoundaryAndPatchRisk {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="What changed, what didn't, and the real cost of a local vendored-repo patch";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  subgraph cluster_changed {
+    label="Changed"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    continue_path [fillcolor="#0f2a20", color="#39ffb0",
+                   label="verdict=continue path only:\nreal judge diagnosis now reaches\nthe agent's next-turn prompt"];
+  }
+
+  subgraph cluster_unchanged {
+    label="Deliberately unchanged"; fontcolor="#39d0ff"; color="#39d0ff"; style=dashed; bgcolor="#0d1a22";
+    blocked_path [fillcolor="#152a3a", color="#39d0ff",
+                  label="verdict=blocked:\nstill pauses and asks the HUMAN\n(a safety valve, not the gap\nbeing fixed here)"];
+  }
+
+  subgraph cluster_risk {
+    label="Real, unresolved risk"; fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    vendored [fillcolor="#241a0d", color="#ff9f4d",
+              label="~/.hermes/hermes-agent IS a real\ngit clone of NousResearch/hermes-agent\n(clean tree, tracking origin/main) —\npatch committed LOCALLY (not pushed)"];
+    update_risk [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+                 label="No supported plugin hook exists\nfor this behavior. A future\n`hermes update` may need this\nreapplied/rebased — flagged,\nnot solved"];
+    vendored -> update_risk;
+  }
+
+  restart [fillcolor="#241a0d", color="#ff9f4d",
+           label="Same restart-required caveat as\nevery config/code change this project:\nthe already-running session has the\nOLD module loaded in memory"];
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="If NousResearch/hermes-agent#93521 (or a successor) merges upstream with this same\nfix, this local patch becomes redundant on the next `hermes update` — that's the\nintended outcome, not a failure of this approach."];
+  continue_path -> note [style=invis];
+  blocked_path -> note [style=invis];
+  update_risk -> note [style=invis];
+  restart -> note [style=invis];
+}

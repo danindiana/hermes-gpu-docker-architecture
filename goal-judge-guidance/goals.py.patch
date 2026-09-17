@@ -1,0 +1,46 @@
+diff --git a/hermes_cli/goals.py b/hermes_cli/goals.py
+index 176e4cf0..155d5566 100644
+--- a/hermes_cli/goals.py
++++ b/hermes_cli/goals.py
+@@ -79,6 +79,14 @@ CONTINUATION_PROMPT_WITH_CONTRACT_TEMPLATE = (
+     "user input, say so clearly and stop."
+ )
+ 
++# Appended to the continuation prompt whenever the judge left a reason — carries its diagnosis
++# forward as course-correcting guidance instead of discarding it after the status line, porting
++# the same technique already used by KANBAN_GOAL_CONTINUATION_TEMPLATE's "Reason: {reason}" line.
++_JUDGE_GUIDANCE_TEMPLATE = (
++    "\n\nThe goal judge's note from its last review (use this to correct "
++    "course, not just to confirm you're still working):\n{reason}"
++)
++
+ # With /subgoal criteria: surfaced verbatim to the agent and to the judge.
+ CONTINUATION_PROMPT_WITH_SUBGOALS_TEMPLATE = (
+     "[Continuing toward your standing goal]\n"
+@@ -1529,10 +1537,22 @@ class GoalManager:
+             contract_block = s.contract.render_block()
+             if s.subgoals:
+                 contract_block = f"{contract_block}\n{_render_extra_criteria(s.subgoals)}"
+-            return CONTINUATION_PROMPT_WITH_CONTRACT_TEMPLATE.format(goal=s.goal, contract_block=contract_block)
+-        if s.subgoals:
+-            return CONTINUATION_PROMPT_WITH_SUBGOALS_TEMPLATE.format(goal=s.goal, subgoals_block=s.render_subgoals_block())
+-        return CONTINUATION_PROMPT_TEMPLATE.format(goal=s.goal)
++            prompt = CONTINUATION_PROMPT_WITH_CONTRACT_TEMPLATE.format(goal=s.goal, contract_block=contract_block)
++        elif s.subgoals:
++            prompt = CONTINUATION_PROMPT_WITH_SUBGOALS_TEMPLATE.format(goal=s.goal, subgoals_block=s.render_subgoals_block())
++        else:
++            prompt = CONTINUATION_PROMPT_TEMPLATE.format(goal=s.goal)
++        # Only append real task feedback: skip after a judge parse/transport failure (last_reason
++        # would be judge-infrastructure error text, e.g. "judge reply was not JSON: ..." — not
++        # something the agent can act on) and skip the "no reason provided" fallback (placeholder,
++        # carries no content). Both counters reset to 0 on any clean evaluation, exactly when
++        # last_reason holds real judge feedback. Same edge case flagged in upstream PR #93521's
++        # review (unaddressed there as of this writing) — closed here from the start.
++        if s.last_reason and s.last_reason != "no reason provided" and not (
++            s.consecutive_parse_failures or s.consecutive_transport_failures
++        ):
++            prompt += _JUDGE_GUIDANCE_TEMPLATE.format(reason=s.last_reason)
++        return prompt
+ 
+     def render_contract(self) -> str:
+         """Public helper for the /goal show + /goal draft slash commands."""

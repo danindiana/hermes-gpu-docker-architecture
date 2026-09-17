@@ -1,0 +1,43 @@
+digraph GapAndFix {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="The gap: the judge's diagnosis was computed every turn, then thrown away";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  judge [fillcolor="#152a3a", color="#39d0ff",
+         label="auxiliary.goal_judge (Claude Haiku)\nevery turn: verdict + reason\ne.g. \"The agent has not yet written\nthe haiku or created the file...\""];
+
+  stored [fillcolor="#152a3a", color="#39d0ff",
+          label="state.last_reason = reason\n(real, computed, stored)"];
+  judge -> stored;
+
+  subgraph cluster_before {
+    label="BEFORE this patch"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#3a0d0d";
+    used_for [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+              label="Used ONLY for:\n- human-facing status line\n- log message"];
+    discarded [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+               label="next_continuation_prompt()\nreturns one of 3 FIXED generic\ntemplates — reason discarded,\nnever reaches the agent"];
+    used_for -> discarded;
+  }
+  stored -> used_for;
+
+  precedent [fillcolor="#241a0d", color="#ff9f4d",
+             label="Real precedent in the SAME file:\nKANBAN_GOAL_CONTINUATION_TEMPLATE\nalready includes \"Reason: {reason}\"\nfor its worker — proves the pattern\nis already trusted here"];
+  discarded -> precedent [style=dashed, color="#8b5cf6", label="if it works there..."];
+
+  subgraph cluster_after {
+    label="AFTER this patch"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    fix [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+         label="next_continuation_prompt() appends\n_JUDGE_GUIDANCE_TEMPLATE.format(\n  reason=s.last_reason)\nto whichever base template applies"];
+  }
+  precedent -> fix;
+
+  outcome [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+           label="Verified twice: unit-level (synthetic reason appears; None produces\nbyte-identical output to old code) and end-to-end (a REAL judge_goal()\ncall, real Anthropic round-trip, produced a genuine diagnosis that\ncorrectly flowed into the next-turn prompt)."];
+  fix -> outcome [style=invis];
+}
