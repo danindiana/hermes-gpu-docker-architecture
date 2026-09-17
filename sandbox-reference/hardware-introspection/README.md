@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-5%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-6%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
   <img alt="capabilities" src="https://img.shields.io/badge/theme-Linux%20capabilities-8b5cf6">
@@ -94,6 +94,23 @@ subfolder expands into standalone diagrams and a self-contained script.
    an HTML error page). Verified against 10 real astronomy papers already
    in the operator's workspace: 100% correct metadata extraction,
    45K–267K characters of real body text each.
+6. **[Language toolchains and the /tmp noexec correction](diagrams/06_language_toolchains_and_tmp_noexec.svg)**
+   — asked "can you access Nim lang?", the baseline was `gcc`/`cc`
+   present but no `go`, `rustc`/`cargo`, or `nim`. Go and Rust are both
+   packaged in Debian (same `APT::Sandbox::User=root` technique); Nim is
+   **not packaged in Debian at all** and was installed via its official
+   `choosenim` installer instead, then symlinked onto `PATH`. All three
+   test builds failed with `Permission denied` when built under `/tmp` —
+   turns out `/tmp`'s *actual* live mount is `noexec`
+   (`mount` shows `rw,nosuid,nodev,noexec,relatime`), **contradicting**
+   what `docker inspect .HostConfig.Tmpfs` reported (no `noexec` listed)
+   — a real correction to
+   [`../diagrams/07_tmpfs_scratch_mounts.svg`](../diagrams/07_tmpfs_scratch_mounts.svg),
+   not just an addition (that diagram has been corrected in place too).
+   `go run` has an extra wrinkle: it stages its build under `$TMPDIR`
+   regardless of source location, so it fails even with source under
+   `/workspace` unless `TMPDIR` is redirected there too. Fix confirmed
+   for all three: build/run under `/workspace` instead.
 
 ## Key takeaways
 
@@ -127,6 +144,12 @@ subfolder expands into standalone diagrams and a self-contained script.
   a model toward writing more code than it can reliably get right in one
   shot. Splitting the reliable, scriptable part out (as a real, tested
   tool) leaves the model only the part it's actually good at.
+- **A Docker config field and the actual live mount can disagree.**
+  `docker inspect`'s reported tmpfs flags for `/tmp` didn't include
+  `noexec`; the real, running mount did. When a "this should work"
+  operation fails inexplicably, check the live system state directly
+  (`mount`, not just `docker inspect`) rather than trusting the config
+  you already read.
 
 ## Related
 

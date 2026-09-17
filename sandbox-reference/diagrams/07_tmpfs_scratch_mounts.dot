@@ -16,8 +16,8 @@ digraph TmpfsScratchMounts {
   }
 
   subgraph cluster_tmpfs {
-    label="tmpfs mounts (RAM-backed, confirmed via `docker inspect`)"; fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
-    tmp [fillcolor="#241a0d", color="#ff9f4d", label="/tmp\n512 MB, nosuid\n(exec allowed)"];
+    label="tmpfs mounts (RAM-backed; flags verified via live `mount`, not just `docker inspect`)"; fontcolor="#ff9f4d"; color="#ff9f4d"; style=dashed; bgcolor="#2a1a0d";
+    tmp [fillcolor="#241a0d", color="#ff9f4d", label="/tmp\n512 MB, nosuid, noexec\n(corrected: `docker inspect` config\nomits noexec here, but the live\nmount has it — see diagram 06 in\nhardware-introspection/)"];
     vartmp [fillcolor="#241a0d", color="#ff9f4d", label="/var/tmp\n256 MB, noexec,nosuid"];
     run [fillcolor="#241a0d", color="#ff9f4d", label="/run\n64 MB, noexec,nosuid"];
   }
@@ -33,7 +33,7 @@ digraph TmpfsScratchMounts {
   run -> gone;
 
   rule [shape=plaintext, fontcolor="#8b5cf6",
-        label="Rule of thumb: /workspace for anything that matters, /tmp or /var/tmp only\nfor genuine scratch you're fine losing on the next container restart —\na tighter bar than the \"survives restarts, lost on recreation\" tier\nthat /home/pn and pip/apt installs fall into (see diagrams 01 and 04)."];
+        label="Rule of thumb: /workspace for anything that matters, /tmp or /var/tmp only\nfor genuine scratch you're fine losing on the next container restart —\na tighter bar than the \"survives restarts, lost on recreation\" tier\nthat /home/pn and pip/apt installs fall into (see diagrams 01 and 04).\nAll three tmpfs mounts are noexec in practice — never build or run a\ncompiled binary here (see diagram 06 in hardware-introspection/)."];
   gone -> rule [style=invis];
   ws -> gone [style=invis];
 }

@@ -1,0 +1,54 @@
+digraph LanguageToolchainsAndTmpNoexec {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"Can you access Nim lang?\" — adding Go/Rust/Nim, and a config-vs-reality correction";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Ask: \"can you access Nim lang?\"\nBaseline: gcc/cc present,\nno go, rustc/cargo, or nim"];
+
+  subgraph cluster_install {
+    label="Installed"; fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    apt [fillcolor="#0f2a20", color="#39ffb0",
+         label="go + rustc/cargo:\npackaged in Debian, installed via\napt-get -o APT::Sandbox::User=root\n(same technique as lspci/lshw/lnav)"];
+    nim [fillcolor="#0f2a20", color="#39ffb0",
+         label="nim: NOT packaged in Debian at all\n(apt-cache search: zero hits).\nInstalled via official choosenim\ninstaller -> /home/pn/.nimble/bin,\nsymlinked into /usr/local/bin"];
+  }
+  ask -> apt;
+  ask -> nim;
+
+  build [fillcolor="#241a0d", color="#ff9f4d",
+         label="Compile + run a test program\nin each: go run, rustc + exec,\nnim c -r"];
+  apt -> build;
+  nim -> build;
+
+  fail [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="ALL THREE fail: \"Permission denied\"\non their own freshly-built binary\nwhen built under /tmp"];
+  build -> fail;
+
+  discovery [fillcolor="#152a3a", color="#39d0ff", penwidth=2.5,
+             label="Root cause: /tmp's ACTUAL live mount is noexec\n(`mount` shows rw,nosuid,nodev,noexec,relatime)\n— CONTRADICTS what `docker inspect\n.HostConfig.Tmpfs` reported earlier\n(rw,nosuid,size=512m, no noexec listed)"];
+  fail -> discovery;
+
+  correction [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+              label="Corrects the earlier tmpfs finding\n(diagram 07 in sandbox-reference/diagrams/)\n— config intent and live mount reality\ncan diverge; always verify with `mount`,\nnot just `docker inspect`"];
+  discovery -> correction;
+
+  gotcha [fillcolor="#241a0d", color="#ff9f4d",
+          label="Extra wrinkle: `go run` stages its\nbuild under $TMPDIR regardless of\nwhere the source file lives — fails\nEVEN with source under /workspace"];
+  discovery -> gotcha;
+
+  fix [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+       label="Fix: always build/run under /workspace\n(real ext4 bind mount, no noexec).\nFor `go run` specifically: redirect\nTMPDIR there too, or use `go build`"];
+  correction -> fix;
+  gotcha -> fix;
+
+  verified [shape=plaintext, fontcolor="#8b5cf6",
+            label="Verified: go version 1.24.4, rustc 1.85.1, nim 2.2.12 — all compile AND run\ncorrectly once building happens under /workspace."];
+  fix -> verified [style=invis];
+}

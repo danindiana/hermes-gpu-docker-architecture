@@ -84,15 +84,24 @@ full picture.
   anything was lost — content can end up outside this mount entirely if
   it was written by something other than a Hermes tool call (e.g. a
   human moving files around in a file manager on the host).
-- **A third category: RAM-backed tmpfs scratch.** `/tmp` (512 MB,
-  `nosuid`), `/var/tmp` (256 MB, `noexec,nosuid`), and `/run` (64 MB,
-  `noexec,nosuid`) are tmpfs mounts — not bind mounts, not part of the
-  container's persistent writable layer either. Confirmed actively used:
-  Hermes's own `execute_code` tool writes its Python kernel runner
-  scripts to `/tmp/hermes_rkernel_<id>/kernel_runner.py`. These are wiped
-  on **any** container stop/restart, not just recreation — a tighter
-  durability bar than `/home/pn` (§ above) or the container's root
-  filesystem (§9's pip/apt installs). Never checkpointed. Full diagram:
+- **A third category: RAM-backed tmpfs scratch — and it's `noexec`,
+  even where the config doesn't say so.** `/tmp`, `/var/tmp`, and `/run`
+  are tmpfs mounts — not bind mounts, not part of the container's
+  persistent writable layer either. `docker inspect`'s
+  `.HostConfig.Tmpfs` field lists `/tmp` as `rw,nosuid,size=512m` (no
+  `noexec`), but **the actual live mount, checked via `mount` inside the
+  container, is `rw,nosuid,nodev,noexec,relatime` — `noexec` IS in
+  effect, contradicting the config field.** Confirmed the hard way: Go/
+  Rust/C binaries built under `/tmp` all failed with `Permission
+  denied`; the same binaries worked once built under `/workspace`
+  instead. **Never build or run a compiled binary under `/tmp`.** Full
+  incident: [`hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg`](hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg).
+  Confirmed actively used for data (not execution): Hermes's own
+  `execute_code` tool writes its Python kernel runner scripts to
+  `/tmp/hermes_rkernel_<id>/kernel_runner.py`. Wiped on **any** container
+  stop/restart, not just recreation — a tighter durability bar than
+  `/home/pn` (§ above) or the container's root filesystem (§9's pip/apt
+  installs). Never checkpointed. Full diagram:
   [07](diagrams/07_tmpfs_scratch_mounts.svg).
 
 ## 3. Network access
@@ -238,6 +247,23 @@ docker exec -u root hermes-<hash> sh -c \
   real case live (an old failed download saved as `.pdf` that was
   actually an HTML error page). Full diagram:
   [`hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg`](hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg).
+- **`go`, `rustc`/`cargo`** — installed after being asked "can you
+  access Nim lang?" (see next bullet). Both packaged in Debian, same
+  `apt-get -o APT::Sandbox::User=root` technique. Confirmed live:
+  `go version` → 1.24.4, `rustc --version` → 1.85.1.
+- **`nim`/`nimble`** — **not packaged in Debian at all**
+  (`apt-cache search '^nim'` returns nothing). Installed via Nim's
+  official `choosenim` installer
+  (`curl https://nim-lang.org/choosenim/init.sh | sh -s -- -y`), which
+  places binaries under `/home/pn/.nimble/bin`; symlinked into
+  `/usr/local/bin` (as root) so they resolve on the default `PATH`
+  without a shell-rc dependency. Confirmed live: `nim --version` →
+  2.2.12, a real program compiled and ran correctly.
+- **All three hit the `/tmp` `noexec` gotcha** (§2) — `go run` in
+  particular stages its build under `$TMPDIR` regardless of source
+  location. Fixed by building/running everything under `/workspace`
+  instead (or redirecting `TMPDIR` there for `go run`). Full diagram:
+  [`hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg`](hardware-introspection/diagrams/06_language_toolchains_and_tmp_noexec.svg).
 - **Same durability caveat as PyMuPDF (§9):** these packages live in the
   container's own root filesystem, not a bind-mounted path — survive
   Hermes process restarts, wiped if the container is ever
@@ -281,9 +307,10 @@ covers what changed since.
 
 Present: `curl`, `wget`, `python3` + `pip3`, `node` + `npm`, `git`, `dot`
 (Graphviz — the image tag is literally `hermes-sandbox:graphviz`),
-`lspci`, `lshw`, `lnav`, `pdftotext`/`pdfinfo`, `dmidecode` (installed
-but non-functional, §6). Absent: `docker` (see §5), `nvidia-smi` (see
-§4, config exists but not live yet), `jq`, `hwinfo`.
+`gcc`/`cc`, `lspci`, `lshw`, `lnav`, `pdftotext`/`pdfinfo`, `go`,
+`rustc`/`cargo`, `nim`/`nimble`, `dmidecode` (installed but
+non-functional, §6). Absent: `docker` (see §5), `nvidia-smi` (see §4,
+config exists but not live yet), `jq`, `hwinfo`.
 
 **PDF processing:** `pypdf` (pure-Python) ships in the image by default.
 `fitz`/PyMuPDF, `PyPDF2`, `pdfplumber`, `pdfminer` are all absent, and
@@ -312,6 +339,17 @@ Python breaking on multi-line extraction+writing logic. A single shell
 command per PDF sidesteps that failure mode entirely. See §6 and
 [`hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg`](hardware-introspection/diagrams/05_pdf_batch_summarization_split.svg)
 for the full incident and fix.
+
+**`pandas` and `matplotlib`:** neither ships by default. Installed via
+`pip3 install --user pandas matplotlib` (no root needed — plain
+user-scope pip, same as PyMuPDF). Pulled in `numpy`, `pillow`, and a
+handful of small dependencies automatically. Verified live: a real
+`DataFrame` printed correctly, a real PNG chart rendered via
+`matplotlib.use("Agg")` (the non-interactive backend — there's no
+display in this sandbox) and saved to `/workspace`. Same durability
+caveat as every other `pip install --user` package: lives in
+`/home/pn/.local`, survives Hermes process restarts, lost on container
+recreation.
 
 ## 10. Guardrails layered on top of the sandbox
 
