@@ -1,0 +1,38 @@
+digraph GlobalSwitchNotPerCall {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="What this pin actually is: a global switch, not a per-call \"help me\" button";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  model_decides [fillcolor="#152a3a", color="#39d0ff",
+                 label="The model DOES decide WHETHER\nto call delegate_task at all\n(its own tool description:\n\"USE FOR: reasoning-heavy\nsubtasks\")"];
+
+  model_not_decide [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+                     label="The model does NOT decide WHICH\nmodel handles it — delegation.provider/\nmodel is a fixed, operator-set config\nvalue, not a per-call parameter\nexposed in the tool schema"];
+  model_decides -> model_not_decide;
+
+  every [fillcolor="#241a0d", color="#ff9f4d",
+         label="Consequence: EVERY delegate_task call\nfrom now on goes to Claude Sonnet 4.6\nand costs real Anthropic API money —\nnot just the ones where the local\nmodel is genuinely stuck"];
+  model_not_decide -> every;
+
+  subgraph cluster_alt {
+    label="Cheaper alternative, not chosen here"; fontcolor="#8b5cf6"; color="#8b5cf6"; style=dashed; bgcolor="#1c1430";
+    haiku [fillcolor="#1c1430", color="#8b5cf6",
+           label="delegation.model: claude-haiku-4-5-20251001\n(same tier already used for\nauxiliary.goal_judge)\nCheaper, less capable"];
+  }
+  every -> haiku [style=dashed, color="#8b5cf6", label="considered, operator\nchose Sonnet instead"];
+
+  cost [fillcolor="#0f2a20", color="#39ffb0",
+        label="Chosen: claude-sonnet-4-6\n$3 in / $15 out per M tokens\n1M context, 64K output,\nreasoning-effort levels\nlow/medium/high/max"];
+  every -> cost;
+
+  note [shape=plaintext, fontcolor="#8b5cf6",
+        label="If delegation volume/cost ever becomes a concern, the fix is the same\nconfig key — swap delegation.model to the haiku tier, or clear it\nentirely to fall back to inheriting the parent's local model again."];
+  cost -> note [style=invis];
+  haiku -> note [style=invis];
+}

@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-33%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-36%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -231,6 +231,23 @@ for installing packages into a `--cap-drop ALL` container (`apt-get -o
 APT::Sandbox::User=root`), a genuine `CAP_SYS_RAWIO` capability wall
 around `dmidecode` left closed on purpose, and a log-viewer install
 (`lnav`) deliberately not paired with host log access, and a batch-PDF-summarization failure fixed by splitting extraction from insight-writing, and a /tmp noexec correction found while adding Go/Rust/Nim toolchains, and finding most requested Nim modules were already stdlib. 7 diagrams.
+
+## Delegating to a frontier model when the local agent is stuck
+
+A fourth subfolder, [`delegate-to-frontier/`](delegate-to-frontier/),
+documents a structural fix rather than one more root-caused symptom:
+Hermes Agent's `delegate_task` tool spawns subagents that **inherit the
+parent's model by default** — so this stack's local
+`qwen3.5:9b-vram-fit` agent asking its own subagents for help just got
+another qwen3.5:9b, same blind spots. Pinning `delegation.provider` /
+`delegation.model` to `anthropic` / `claude-sonnet-4-6` in
+`~/.hermes/config.yaml` fixes it, at zero new credential setup (the
+existing `auxiliary.goal_judge` Anthropic credential pool covers it) —
+verified live via a real delegation manifest, not just config
+read-back. Also documents the real trade-off: this is a global switch,
+not a per-call "ask for help" button — every delegation now costs real
+API money, not only the ones where the local model is genuinely stuck.
+3 diagrams.
 
 ## License
 

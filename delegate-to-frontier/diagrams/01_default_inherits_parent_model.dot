@@ -1,0 +1,34 @@
+digraph DefaultInheritsParentModel {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="The gap: delegate_task children inherit the parent's model by default";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  parent [fillcolor="#241a0d", color="#ff9f4d",
+          label="Parent agent: qwen3.5:9b-vram-fit\n(local Ollama, 9B params)"];
+
+  stuck [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+         label="Genuinely stuck this session:\ngoal_judge verdict=blocked\n\"mixing Python and Nim syntax\nincorrectly\" — real, live example"];
+  parent -> stuck;
+
+  call [fillcolor="#152a3a", color="#39d0ff",
+        label="Agent calls its own delegate_task tool\n(\"reasoning-heavy subtask\" —\nexactly what its own tool\ndescription says to use it for)"];
+  stuck -> call;
+
+  default [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="DEFAULT BEHAVIOR (before this fix):\nchild inherits parent model\n→ ALSO qwen3.5:9b-vram-fit"];
+  call -> default;
+
+  outcome [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="Same blind spots, same class of\nmistake, no actual second opinion.\nA 9B local model asking\nitself for help."];
+  default -> outcome;
+
+  source [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+          label="Confirmed directly in tools/delegate_tool.py's\nown tool-schema description (what the model itself\nis told): \"Children inherit the parent model unless\npinned via delegation.provider / delegation.model\nin config.yaml.\""];
+  outcome -> source [style=invis];
+}
