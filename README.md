@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-41%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-43%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -277,6 +277,23 @@ independently — so no competing PR was opened, per the project's own
 that this local patch's own first test run reproduced independently —
 closed locally by gating on the judge's failure counters. 4 diagrams,
 plus the real diff as a standalone patch file.
+
+## "Compaction fires too early" — a documented safety floor, not a bug
+
+A sixth subfolder, [`compaction-threshold/`](compaction-threshold/),
+covers a report that context compaction was firing well before the
+context window filled on both `qwen3.5:9b-vram-fit` and
+`muse-glimmer:30b`. Reading `agent/context_compressor.py` found a
+"raise-only small-context threshold floor" — any model under 512K
+context gets its compaction trigger forced to 75%, confirmed live in
+`agent.log` at exactly that ratio. The design reason is documented in
+the source itself: at 50% on a small window, the reclaimed space gets
+eaten by the protected tail and compaction thrashes every 1-2 turns.
+Raised it anyway to `0.92` per request (the floor is provably
+raise-only), verified live via Hermes's own real config-loading code,
+with the honest trade-off spelled out: less headroom means more risk of
+a session wedging mid-compaction on a large tool-output turn. 2
+diagrams.
 
 ## License
 

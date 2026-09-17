@@ -1,0 +1,42 @@
+digraph RaisingItAndTheTradeoff {
+  rankdir=LR;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Raising the threshold: the floor is raise-only, so 0.92 is honored as-is";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Operator: raise compression.threshold\nto something like 0.90-0.95"];
+
+  setval [fillcolor="#0f2a20", color="#39ffb0",
+          label="config.yaml: compression.threshold: 0.92\n(config backed up first)"];
+  ask -> setval;
+
+  raiseonly [fillcolor="#152a3a", color="#39d0ff",
+             label="_effective_threshold_percent() is RAISE-ONLY:\nmax(configured, 0.75) for small windows.\nAn explicit value ABOVE 0.85 is honored\nas literal user intent, not re-capped\n(confirmed directly in source comment)"];
+  setval -> raiseonly;
+
+  subgraph cluster_verify {
+    label="Verified live via Hermes's own real config-loading +\ncontext-resolution code, not hand-typed numbers";
+    fontcolor="#39ffb0"; color="#39ffb0"; style=dashed; bgcolor="#0f2a20";
+    q [fillcolor="#0f2a20", color="#39ffb0",
+       label="qwen3.5:9b-vram-fit\n241,172 / 262,144 tokens\n92.0% — 20,972 headroom"];
+    m [fillcolor="#0f2a20", color="#39ffb0",
+       label="muse-glimmer:30b\n120,586 / 131,072 tokens\n92.0% — 10,486 headroom"];
+  }
+  raiseonly -> q;
+  raiseonly -> m;
+
+  risk [shape=octagon, fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="Real, flagged (not yet observed) risk:\na real compaction pass logged this session\ntook ~118 seconds. At 92% headroom is only\n10.5K-21K tokens — one big tool-output turn\nmid-compaction could overflow the provider's\nhard limit before it finishes (\"wedging\"),\nespecially on muse-glimmer's tighter margin."];
+  q -> risk [style=dashed, color="#ff4d4d"];
+  m -> risk [style=dashed, color="#ff4d4d"];
+
+  mitigation [shape=plaintext, fontcolor="#8b5cf6",
+              label="If a session wedges: drop compression.threshold back toward 0.85.\nSame restart-required caveat as every other config change in this stack —\nan already-running session has the old value cached at process start."];
+  risk -> mitigation [style=invis];
+}

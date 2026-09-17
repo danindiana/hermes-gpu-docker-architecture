@@ -1,0 +1,34 @@
+digraph SmallContextFloorMechanism {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="\"Compaction fires way before the context limit\" — intentional, not a bug";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  observed [fillcolor="#241a0d", color="#ff9f4d",
+            label="Observed: compaction firing well before\nthe window is full on qwen3.5:9b-vram-fit\n(262,144 ctx) and muse-glimmer:30b (131,072 ctx)"];
+
+  config [fillcolor="#152a3a", color="#39d0ff",
+          label="config.yaml: compression.threshold: 0.50\n(the value the operator actually set)"];
+  observed -> config [style=dashed, color="#8b5cf6", label="expected trigger:\n50% of window"];
+
+  floor [shape=octagon, fillcolor="#ff9f4d", color="#ff9f4d", fontcolor="#2a1a0d",
+         label="agent/context_compressor.py:\n_effective_threshold_percent()\n\"raise-only small-context floor\":\ncontext_length < 512,000\n-> forced up to 0.75"];
+  config -> floor;
+
+  both [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+        label="BOTH models qualify:\n262,144 < 512,000\n131,072 < 512,000\nActual trigger: 75%, not 50%"];
+  floor -> both;
+
+  evidence [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+            label="Confirmed live in agent.log, not just source reading:\n\"197,189 request tokens >= 196,608 threshold\n(context=262,144, attempt=1/3)\"\n196,608 / 262,144 = exactly 75.0%"];
+  both -> evidence;
+
+  why [shape=note, fillcolor="#152a3a", color="#39d0ff", fontcolor="#dfe6ee",
+       label="Why the floor exists (source comment): at 50% on a small window, the\nprotected/incompressible tail (system prompt, protected recent messages,\ntool schemas) eats most of the reclaimed space — compaction would\nre-fire every 1-2 turns. 75% leaves enough absolute headroom to avoid that."];
+  evidence -> why [style=invis];
+}
