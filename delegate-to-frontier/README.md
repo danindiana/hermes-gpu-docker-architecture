@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-3%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-4%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="model" src="https://img.shields.io/badge/pinned%20model-Claude%20Sonnet%204.6-8b5cf6">
   <img alt="verified" src="https://img.shields.io/badge/every%20claim-live--verified-39d0ff">
@@ -156,6 +156,49 @@ of diagram [03](diagrams/03_global_switch_not_per_call.svg):
   cost ever becomes a real concern, that's the same config key to
   adjust — or clear the block entirely to fall back to inheriting the
   parent's local model again.
+
+## Follow-up: telling the agent to actually use it
+
+A pinned model is only half the fix — the agent still has to *decide*
+to call `delegate_task` in the first place. The follow-up question was
+direct: *"I have a model which is stumped, how do I tell it to use that
+feature to call for help?"*
+
+### The nudge: AGENTS.md at the workspace root
+
+[`AGENTS.md.example`](AGENTS.md.example) — a real copy of the file now
+placed at `/workspace`'s root in this deployment (the sandbox's own
+bind-mounted, checkpointed directory; see
+[`../sandbox-reference/REFERENCE.md`](../sandbox-reference/REFERENCE.md)
+§2) — tells the agent to call `delegate_task` **proactively, without
+being asked**, specifically when it notices:
+
+- it's retried the same class of fix twice or more (the same category
+  of syntax error, the same wrong assumption),
+- it's about to guess at an API or system behavior instead of verifying
+  it, or
+- a `/goal`-mode judge (or the operator) has flagged the same
+  underlying issue twice.
+
+It's deliberately scoped to *not* fire for mechanical work with no real
+reasoning gap — the delegation tool's own schema already says not to
+use it there, and repeating that in the nudge would just encourage
+over-delegation (real cost, per the trade-off above).
+
+### The gotcha found while testing this: config caching, not a new bug
+
+Restarting the stuck live session to test the nudge surfaced one more
+instance of a pattern already documented elsewhere in this repo: **a
+config value being correct on disk doesn't mean the running process has
+it.** The session that had been stuck had started well *before* the
+`delegation.provider`/`model` edit — checked directly in Hermes's own
+`cli.py`: `CLI_CONFIG = load_cli_config()` is a plain module-level
+assignment, executed once at process start and never re-read. Exactly
+the same shape as the `terminal.docker_extra_args` /
+`model.default` findings in
+[`../sandbox-reference/`](../sandbox-reference/) — the fix is the same
+in every case: restart the process, don't just edit the file. Full
+diagram: [04](diagrams/04_agents_md_nudge_and_restart_gotcha.svg).
 
 ## Why this belongs in this repo
 

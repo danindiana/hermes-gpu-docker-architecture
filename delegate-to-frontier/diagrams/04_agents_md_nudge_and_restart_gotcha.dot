@@ -1,0 +1,40 @@
+digraph AgentsMdNudgeAndRestartGotcha {
+  rankdir=TB;
+  bgcolor="#0a0e12";
+  fontname="Helvetica";
+  fontcolor="#dfe6ee";
+  label="Closing the loop: a proactive nudge, and a real config-caching gotcha found while wiring it up";
+  labelloc="t";
+  fontsize=20;
+  node [style=filled, fontname="Helvetica", fontcolor="#dfe6ee", shape=box, color="#556070"];
+  edge [color="#39ffb0", fontcolor="#ffa93a", fontname="Helvetica", penwidth=1.5];
+
+  ask [fillcolor="#241a0d", color="#ff9f4d",
+       label="Operator: \"I have a model which is\nstumped, how do I tell it to\nuse that feature to call for help?\""];
+
+  nudge [fillcolor="#0f2a20", color="#39ffb0", penwidth=2.5,
+         label="AGENTS.md placed at /workspace root\n(the sandbox's own bind-mounted,\ncheckpointed directory)"];
+  ask -> nudge;
+
+  content [fillcolor="#152a3a", color="#39d0ff",
+           label="Tells the agent to call delegate_task\nPROACTIVELY, without being asked, when:\n- same fix retried 2+ times\n- about to guess instead of verify\n- a /goal judge flagged the same\n  issue twice"];
+  nudge -> content;
+
+  subgraph cluster_gotcha {
+    label="Real gotcha, found live while restarting to test this"; fontcolor="#ff4d4d"; color="#ff4d4d"; style=dashed; bgcolor="#3a0d0d";
+    stale [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="The ALREADY-RUNNING stuck session\n(started well before the delegation\nconfig change) still had the OLD\ninherit-parent-model behavior"];
+    cause [fillcolor="#3a0d0d", color="#ff4d4d", fontcolor="#ffdada",
+           label="Root cause, confirmed in cli.py:\nCLI_CONFIG = load_cli_config()\nis a module-level assignment —\nloaded ONCE at process start,\nnever re-read"];
+    stale -> cause;
+  }
+  content -> stale [style=dashed, color="#ff4d4d", label="checked process start time\nvs. config edit time"];
+
+  fix [fillcolor="#0f2a20", color="#39ffb0",
+       label="Same pattern as every other config\nchange this project (model.default,\nterminal.docker_extra_args, ...):\nno hot-reload — the running Hermes\nprocess must be restarted"];
+  cause -> fix;
+
+  outcome [shape=plaintext, fontcolor="#8b5cf6",
+           label="Net result: AGENTS.md discovery + delegation pinning both take effect\ntogether on next session start, not independently or immediately —\none more instance of \"the config was updated\" != \"the running process\nreflects it,\" the same rule already documented for the Docker sandbox."];
+  fix -> outcome [style=invis];
+}

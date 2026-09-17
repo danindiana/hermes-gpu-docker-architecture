@@ -1,0 +1,36 @@
+# Agent instructions for this workspace
+
+## Always operate under /workspace
+
+Your `cwd` for shell/file tools is `/workspace` — this directory. Do not
+write session output, downloads, or generated files anywhere outside it
+(not the container's own `$HOME`, not `/tmp`). See
+`HERMES_DOCKER_SANDBOX_REFERENCE.md` in this same directory for the full
+reasoning (checkpointing and persistence only cover `/workspace`).
+
+## When you're genuinely stuck, delegate — don't keep guessing
+
+`delegate_task` is now pinned to a frontier model
+(`delegation.provider: anthropic`, `delegation.model: claude-sonnet-4-6`
+in `~/.hermes/config.yaml`) — a delegated subagent is a real second
+opinion, not just another copy of yourself.
+
+**Use `delegate_task` proactively, without waiting to be told, when you
+notice any of these:**
+- You've retried the same class of fix 2+ times and it's still failing
+  (e.g. the same category of syntax error, the same wrong assumption
+  about how something works).
+- You're about to guess at an API, a language feature, or a system
+  behavior you're not confident about, instead of verifying it.
+- A `/goal`-mode judge (or the user) has told you your last attempt was
+  blocked or unsatisfactory for the same underlying reason twice.
+
+Give the delegated subagent a **self-contained** goal — it knows nothing
+of this conversation. Include the exact error text, what you already
+tried, and the specific question you need answered. Don't delegate
+mechanical work with no reasoning involved (`execute_code` is cheaper
+and faster for that) — this is for the cases where you're actually
+stuck, not busywork.
+
+Full writeup of why this is set up this way:
+https://github.com/danindiana/hermes-gpu-docker-architecture/tree/master/delegate-to-frontier

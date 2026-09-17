@@ -7,7 +7,7 @@
   <img alt="platform" src="https://img.shields.io/badge/platform-Linux-informational">
   <img alt="made-with-hermes" src="https://img.shields.io/badge/made%20with-Hermes%20Agent-8b5cf6">
   <img alt="made-with-ollama" src="https://img.shields.io/badge/made%20with-Ollama-000000">
-  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-36%20%C3%97%202%20formats-orange">
+  <img alt="diagrams" src="https://img.shields.io/badge/diagrams-37%20%C3%97%202%20formats-orange">
   <img alt="rendered-with" src="https://img.shields.io/badge/rendered%20with-Graphviz-2e8b57">
   <img alt="repo-size" src="https://img.shields.io/github/repo-size/danindiana/hermes-gpu-docker-architecture">
   <img alt="last-commit" src="https://img.shields.io/github/last-commit/danindiana/hermes-gpu-docker-architecture">
@@ -247,7 +247,14 @@ verified live via a real delegation manifest, not just config
 read-back. Also documents the real trade-off: this is a global switch,
 not a per-call "ask for help" button — every delegation now costs real
 API money, not only the ones where the local model is genuinely stuck.
-3 diagrams.
+
+A follow-up adds the other half: an `AGENTS.md` nudge telling the agent
+to call `delegate_task` proactively when it's genuinely stuck, plus one
+more config-caching gotcha found while testing it — restarting the
+stuck live session revealed `CLI_CONFIG` is loaded once at process
+start and never re-read, so the pinning above wasn't actually live on
+an already-running session until restarted. Same shape as the
+`terminal.docker_extra_args` finding in `sandbox-reference/`. 4 diagrams.
 
 ## License
 
